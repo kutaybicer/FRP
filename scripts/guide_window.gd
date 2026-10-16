@@ -64,6 +64,7 @@ Bu uygulamayla oyun dünyanı çizebilir; şehirler, zindanlar ve iç içe harit
 	["Arazi Boyama", """[h]Arazi aracı ([k]B[/k])[/h]
 • Sol panelden arazi tipini seç, haritada sol tıkla basılı tutup boya.
 • Fırça boyutu: [k][lb][/k] / [k][rb][/k] veya kaydırıcı.
+• Fırçayı bırakmak için [k]Esc[/k] (Seç aracına döner). Başka bir haritaya geçince ya da yeni harita oluşturunca da fırça kendiliğinden bırakılır.
 • Arazi tipleri: Derin Deniz, Deniz, Sığ Su/Göl, Kumsal, Çayır, Ova, Orman, Bataklık, Çöl, Tepelik, Dağlık, Kar, Lav; şehir ve zindan için Toprak Yol, Kaldırım, Taş Zemin, Ahşap Zemin, Duvar, Boşluk/Kaya ve Parşömen.
 
 [h]Kova Dolgu ([k]G[/k])[/h]
@@ -272,7 +273,7 @@ Bu uygulamayla oyun dünyanı çizebilir; şehirler, zindanlar ve iç içe harit
 [cell][k]Tab[/k][/cell][cell]Düzenleme ↔ Masa modu[/cell]
 [cell][k]Delete[/k][/cell][cell]Seçili nesneyi sil[/cell]
 [cell][k]Backspace[/k][/cell][cell]Üst haritaya dön[/cell]
-[cell][k]Esc[/k][/cell][cell]Seçimi / yerleştirmeyi iptal et[/cell]
+[cell][k]Esc[/k][/cell][cell]Yerleştirmeyi iptal et / elindeki aracı (fırça vb.) bırak / seçimi kaldır[/cell]
 [cell][k]Ctrl+Z[/k] / [k]Ctrl+Y[/k][/cell][cell]Geri al / Yinele[/cell]
 [cell][k]Ctrl+S[/k] / [k]Ctrl+O[/k][/cell][cell]Kaydet / Aç[/cell]
 [/table]
@@ -293,7 +294,8 @@ Bu uygulamayla oyun dünyanı çizebilir; şehirler, zindanlar ve iç içe harit
 • [g]Kaydet[/g] ile seçtiğin yerde (varsayılan Belgeler). Otomatik kayıt: Windows'ta [b]%APPDATA%\\Godot\\app_userdata\\FRP Harita Ustasi\\autosave.frp[/b].
 
 [b]Haritam çok büyük, yavaşladı[/b]
-• HD görünümü kapatmayı dene; çok büyük haritalarda geri alma geçmişi kısalır (bellek için).
+• Semboller parçalara bölünerek çizilir; ekranda görünmeyenler çizilmez. Çok uzaklaşınca küçük dağ / orman sembolleri gizlenir (arazi rengi zaten görünür).
+• Hâlâ yavaşsa HD görünümü kapatmayı dene. Çok büyük haritalarda geri alma geçmişi kısalır (bellek için).
 
 [b]Bir şeyi yanlışlıkla sildim[/b]
 • [k]Ctrl+Z[/k]. Karakter silme geri alınamaz; dikkat!

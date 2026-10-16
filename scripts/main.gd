@@ -169,7 +169,8 @@ func enter_map(id: String) -> void:
 		cam.zoom = Vector2.ONE * current.view_zoom
 	else:
 		_fit()
-	if view.tool == T.PARTY and view.play_mode:
+	# başka haritaya geçince fırça vb. araçlar elde kalmasın
+	if view.tool != T.SELECT and tool_grid != null:
 		_set_tool(T.SELECT)
 	_refresh_breadcrumb()
 	_refresh_tree()
@@ -342,10 +343,14 @@ func _unhandled_input(event: InputEvent) -> void:
 		KEY_DELETE: view.delete_selected()
 		KEY_BACKSPACE: _go_up()
 		KEY_ESCAPE:
+			# Esc: yerleştirmeyi iptal et / elindeki aracı bırak (Seç'e dön) / seçimi kaldır
 			if view.tool == T.TOKEN and view.token_char != "":
 				view.cancel_placement()
-			view.clear_selection()
-			view.set_tool(view.tool)
+			elif view.tool != T.SELECT:
+				_set_tool(T.SELECT)
+				_toast("Araç bırakıldı (Seç / Taşı).")
+			else:
+				view.clear_selection()
 		KEY_HOME: _fit()
 		KEY_D: _toggle_dice_tray()
 		KEY_F1: guide.open()
@@ -987,6 +992,7 @@ func _inspect_map() -> void:
 			view.record()
 			MapGenerator.generate_terrain(current, _gen_seed, island.button_pressed, rivers.button_pressed, nature.button_pressed)
 			view.rebuild_all()
+			_set_tool(T.SELECT)
 			_refresh_inspector())))
 
 	box.add_child(HSeparator.new())

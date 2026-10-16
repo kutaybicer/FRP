@@ -120,20 +120,21 @@ static func _nature_symbols(map: MapData, rng: RandomNumberGenerator) -> void:
 		var t := map.terrain[map.idx(c, r)]
 		var type := ""
 		var min_d := 0.0
-		if t == T.MOUNTAIN or t == T.SNOW:
+		# seyrek yerleşim: dağlık ve ormanlık alanlar sembolle dolup taşmasın
+		if (t == T.MOUNTAIN or t == T.SNOW) and rng.randf() < 0.45:
 			type = "mountain"
-			min_d = 40.0
-		elif t == T.HILLS and rng.randf() < 0.25:
+			min_d = 80.0
+		elif t == T.HILLS and rng.randf() < 0.08:
 			type = "hills"
-			min_d = 50.0
-		elif t == T.FOREST and rng.randf() < 0.18:
+			min_d = 110.0
+		elif t == T.FOREST and rng.randf() < 0.06:
 			type = "forest"
-			min_d = 60.0
+			min_d = 125.0
 		if type == "":
 			continue
 		var pos := (Vector2(c, r) + Vector2(rng.randf(), rng.randf())) * Defs.CELL
 		# yakındaki semboller için ızgara kovası (büyük haritalarda hızlı)
-		var key := Vector2i(floori(pos.x / 64.0), floori(pos.y / 64.0))
+		var key := Vector2i(floori(pos.x / 128.0), floori(pos.y / 128.0))
 		var ok := true
 		for dy in range(-1, 2):
 			for dx in range(-1, 2):

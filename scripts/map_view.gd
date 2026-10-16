@@ -72,6 +72,14 @@ var _region_sprite: Sprite2D
 var _fog_sprite: Sprite2D
 var _objects: Node2D
 var _tokens: Node2D
+# Semboller 512 px'lik parçalara bölünür: ekran dışındaki parçalar çizilmez (büyük haritalarda hız)
+const CHUNK := 512.0
+const NATURE := ["mountain", "hills", "forest", "pine", "tree"]
+var _sym_root: Node2D
+var _nature_root: Node2D
+var _labels_node: Node2D
+var _chunks := {}        # "n|x|y" veya "s|x|y" -> Node2D
+var _chunk_syms := {}    # aynı anahtar -> [semboller]
 var _top: Node2D
 var _font: Font        # arayüz ipuçları
 var _font_title: Font  # bölge isimleri, yazılar
@@ -119,6 +127,13 @@ func _ready() -> void:
 	_objects = Node2D.new()
 	add_child(_objects)
 	_objects.draw.connect(_draw_objects)
+	_nature_root = Node2D.new()
+	add_child(_nature_root)
+	_sym_root = Node2D.new()
+	add_child(_sym_root)
+	_labels_node = Node2D.new()
+	add_child(_labels_node)
+	_labels_node.draw.connect(_draw_labels)
 	_tokens = Node2D.new()
 	_tokens.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	add_child(_tokens)
@@ -223,6 +238,67 @@ func update_fog_visibility() -> void:
 func redraw() -> void:
 	_objects.queue_redraw()
 	_tokens.queue_redraw()
+	_labels_node.queue_redraw()
+	_rebuild_chunks()
+
+
+func _process(_delta: float) -> void:
+	# çok uzaktan bakınca minicik kalan doğa sembollerini gizle
+	if _nature_root:
+		_nature_root.visible = _zoom() * Defs.SYMBOL_BASE >= 7.0
+
+
+func _chunk_key(s: Dictionary) -> String:
+	var p: Vector2 = s["pos"]
+	var pre := "n" if str(s.get("type", "")) in NATURE else "s"
+	return "%s|%d|%d" % [pre, floori(p.x / CHUNK), floori(p.y / CHUNK)]
+
+
+func _rebuild_chunks() -> void:
+	if _sym_root == null:
+		return
+	_chunk_syms.clear()
+	if map:
+		for s in map.symbols:
+			var k := _chunk_key(s)
+			if not _chunk_syms.has(k):
+				_chunk_syms[k] = []
+			_chunk_syms[k].append(s)
+	for k in _chunks.keys():
+		if not _chunk_syms.has(k):
+			_chunks[k].queue_free()
+			_chunks.erase(k)
+	for k in _chunk_syms:
+		if not _chunks.has(k):
+			var n := Node2D.new()
+			(_nature_root if k.begins_with("n") else _sym_root).add_child(n)
+			n.draw.connect(_draw_chunk.bind(k, n))
+			_chunks[k] = n
+		_chunks[k].queue_redraw()
+
+
+func _draw_chunk(k: String, ci: Node2D) -> void:
+	for s in _chunk_syms.get(k, []):
+		var r := Defs.SYMBOL_BASE * float(s.get("size", 1.0))
+		SymbolPainter.draw_symbol(ci, str(s["type"]), s["pos"], r)
+		if str(s.get("link", "")) != "":
+			# alt haritası olan sembolleri işaretle
+			var b: Vector2 = s["pos"] + Vector2(r * 0.8, -r * 0.8)
+			ci.draw_circle(b, 4.5, Color("f2d16b"))
+			ci.draw_arc(b, 4.5, 0, TAU, 12, SymbolPainter.INK, 1.2, true)
+			ci.draw_line(b + Vector2(-1.5, -2.2), b + Vector2(1.8, 0), SymbolPainter.INK, 1.3)
+			ci.draw_line(b + Vector2(1.8, 0), b + Vector2(-1.5, 2.2), SymbolPainter.INK, 1.3)
+		var nm := str(s.get("name", ""))
+		if show_names and nm != "":
+			_text(ci, s["pos"] + Vector2(0, r + 9), nm, 15, SymbolPainter.INK)
+
+
+func _draw_labels() -> void:
+	if map == null:
+		return
+	for l in map.labels:
+		_text(_labels_node, l["pos"], str(l["text"]), int(l.get("size", 22)), l.get("color", Color.BLACK),
+				Color(0.96, 0.92, 0.8, 0.7), 6, _label_font(l))
 	_top.queue_redraw()
 
 
@@ -332,7 +408,7 @@ func select(obj: Dictionary, kind: String) -> void:
 	selected = obj
 	selected_kind = kind
 	selection_changed.emit()
-	redraw()
+	_top.queue_redraw()
 
 
 func clear_selection() -> void:
@@ -341,7 +417,7 @@ func clear_selection() -> void:
 	selected = {}
 	selected_kind = ""
 	selection_changed.emit()
-	redraw()
+	_top.queue_redraw()
 
 
 func delete_selected() -> void:
@@ -652,14 +728,27 @@ func _play_press(p: Vector2) -> void:
 
 func _move_object(obj: Dictionary, kind: String, delta: Vector2) -> void:
 	match kind:
-		"symbol", "label", "token":
+		"symbol":
+			var old_key := _chunk_key(obj)
 			obj["pos"] += delta
+			var new_key := _chunk_key(obj)
+			if old_key != new_key or not _chunks.has(new_key):
+				_rebuild_chunks()
+			else:
+				_chunks[new_key].queue_redraw()
+		"label":
+			obj["pos"] += delta
+			_labels_node.queue_redraw()
+		"token":
+			obj["pos"] += delta
+			_tokens.queue_redraw()
 		"path":
 			var pts: PackedVector2Array = obj["points"]
 			for i in pts.size():
 				pts[i] += delta
 			obj["points"] = pts
-	redraw()
+			_objects.queue_redraw()
+	_top.queue_redraw()
 
 
 # ---------- isabet testleri
@@ -950,22 +1039,6 @@ func _draw_objects() -> void:
 	for path in map.paths:
 		_draw_path(ci, path)
 	_draw_region_names(ci)
-	for s in map.symbols:
-		var r := Defs.SYMBOL_BASE * float(s.get("size", 1.0))
-		SymbolPainter.draw_symbol(ci, str(s["type"]), s["pos"], r)
-		if str(s.get("link", "")) != "":
-			# alt haritası olan sembolleri işaretle
-			var b: Vector2 = s["pos"] + Vector2(r * 0.8, -r * 0.8)
-			ci.draw_circle(b, 4.5, Color("f2d16b"))
-			ci.draw_arc(b, 4.5, 0, TAU, 12, SymbolPainter.INK, 1.2, true)
-			ci.draw_line(b + Vector2(-1.5, -2.2), b + Vector2(1.8, 0), SymbolPainter.INK, 1.3)
-			ci.draw_line(b + Vector2(1.8, 0), b + Vector2(-1.5, 2.2), SymbolPainter.INK, 1.3)
-		var nm := str(s.get("name", ""))
-		if show_names and nm != "":
-			_text(ci, s["pos"] + Vector2(0, r + 9), nm, 15, SymbolPainter.INK)
-	for l in map.labels:
-		_text(ci, l["pos"], str(l["text"]), int(l.get("size", 22)), l.get("color", Color.BLACK),
-				Color(0.96, 0.92, 0.8, 0.7), 6, _label_font(l))
 
 
 func _draw_grid(ci: CanvasItem) -> void:

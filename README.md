@@ -2,6 +2,9 @@
 
 FRP kampanyaları için iç içe harita tasarlama aracı. Dünya haritası çiz, krallıkları boya, şehir sembolü koy. Sembole tıklayınca o şehrin haritası açılır, oradan meyhaneye, meyhaneden mahzene girebilirsin.
 
+## Oyun içi rehber
+Sağ üstteki **Info** düğmesi (ya da **F1**) her şeyin nasıl yapıldığını anlatan rehberi açar: harita çizme, su ekleme, fırça boyutu, krallıklar, semboller ve iç içe haritalar, karakterler, envanter, zarlar, masa modu, kısayollar. Rehberde arama yapılabilir.
+
 ## Çalıştırma
 1. Godot 4.3 veya daha yenisini aç, **Import** ile bu klasördeki `project.godot` dosyasını seç.
 2. F5 ile çalıştır. Harici resim veya eklenti gerekmez, tüm semboller kodla çizilir.
@@ -68,6 +71,7 @@ FRP kampanyaları için iç içe harita tasarlama aracı. Dünya haritası çiz,
 | Çift tık (sembol) | Alt haritaya gir; yoksa oluşturur |
 | Backspace | Üst haritaya dön |
 | D | Zar tepsisi |
+| F1 | Rehber (Info) |
 | Ctrl+Z / Ctrl+Y | Geri al / Yinele |
 | Ctrl+S / Ctrl+O | Kaydet / Aç |
 | Delete | Seçiliyi sil |

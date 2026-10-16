@@ -33,6 +33,7 @@ var dice_history: VBoxContainer
 var dice_overlay: DiceOverlay
 var _roll_log: Array = []
 var new_dialog: ConfirmationDialog
+var guide: GuideWindow
 var nd_start: OptionButton
 var nd_size: OptionButton
 var nd_cols: SpinBox
@@ -347,6 +348,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			view.set_tool(view.tool)
 		KEY_HOME: _fit()
 		KEY_D: _toggle_dice_tray()
+		KEY_F1: guide.open()
 		KEY_H:
 			view.show_grid = not view.show_grid
 			view.redraw()
@@ -440,6 +442,12 @@ func _build_ui() -> void:
 	mode_button = _toggle("DÜZENLEME MODU (Tab)", false, _set_play,
 			"Masa modu: oyun sırasında kullanılır. Sembole tek tıkla girilir, sis tam kapalıdır, grup jetonu sürüklenir.")
 	mode_button.custom_minimum_size.x = 210
+	var info := _btn("Info", func() -> void: guide.open(), "Rehber: nasıl yapılır, kısayollar (F1)")
+	info.add_theme_color_override("font_color", Color("8fd1ff"))
+	info.add_theme_font_size_override("font_size", 16)
+	info.custom_minimum_size.x = 64
+	bar.add_child(info)
+	bar.add_child(VSeparator.new())
 	bar.add_child(mode_button)
 
 	# --- konum çubuğu (breadcrumb)
@@ -546,6 +554,8 @@ func _build_ui() -> void:
 	ui.add_child(confirm)
 
 	_build_new_dialog()
+	guide = GuideWindow.new()
+	ui.add_child(guide)
 
 	dice_overlay = DiceOverlay.new()
 	ui.add_child(dice_overlay)

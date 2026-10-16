@@ -58,58 +58,118 @@ static func _biome(e: float, m: float) -> int:
 
 
 static func _rivers(map: MapData, heights: PackedFloat32Array, rng: RandomNumberGenerator) -> void:
+	var W := map.cols
+	var H := map.rows
+	var flow := _flow_field(map, heights, rng)
 	var sources: Array = []
-	var max_rivers := clampi(map.cols * map.rows / 1500, 6, 40)
+	var max_rivers := clampi(W * H / 2500, 4, 28)
+	var min_gap := clampf(maxf(W, H) / 8.0, 18.0, 45.0)
 	for i in 400 + max_rivers * 60:
-		var c := rng.randi_range(2, map.cols - 3)
-		var r := rng.randi_range(2, map.rows - 3)
-		if heights[r * map.cols + c] > 0.64 and heights[r * map.cols + c] < 0.8:
+		var c := rng.randi_range(2, W - 3)
+		var r := rng.randi_range(2, H - 3)
+		var h := heights[r * W + c]
+		if h > 0.64 and h < 0.8:
 			var ok := true
 			for s in sources:
-				if s.distance_to(Vector2(c, r)) < 14:
+				if s.distance_to(Vector2(c, r)) < min_gap:
 					ok = false
 					break
 			if ok:
 				sources.append(Vector2(c, r))
 		if sources.size() >= max_rivers:
 			break
+	# yüksekten başlayanlar önce: kollar sonradan gelip ana nehre katılır
+	sources.sort_custom(func(a, b): return heights[int(a.y) * W + int(a.x)] > heights[int(b.y) * W + int(b.x)])
+	var occupied := PackedByteArray()
+	occupied.resize(W * H)
+	for s in sources:
+		var cur := int(s.y) * W + int(s.x)
+		if occupied[cur] == 1:
+			continue
+		var cells := PackedInt32Array()
+		var ends := false
+		for step in W * H:
+			cells.append(cur)
+			if Defs.water_lookup[map.terrain[cur]] == 1:
+				ends = true
+				break
+			if occupied[cur] == 1:
+				ends = true   # başka bir nehre katıldı
+				break
+			var nxt := flow[cur]
+			if nxt < 0:
+				ends = true   # harita kenarından akıp gidiyor
+				break
+			cur = nxt
+		if not ends or cells.size() < 10:
+			continue
+		for k in cells:
+			occupied[k] = 1
+		# hücre merdivenini seyrelt, sonra yumuşat: akıcı kıvrımlar
+		var pts := PackedVector2Array()
+		for i in cells.size():
+			if i % 3 == 0 or i == cells.size() - 1:
+				var k := cells[i]
+				pts.append((Vector2(k % W, k / W) + Vector2(0.5, 0.5)) * Defs.CELL)
+		map.paths.append({"type": "river", "points": smooth(pts, 3), "name": Defs.random_name() + " Nehri", "width": 4.0})
+
+
+## Priority-flood: her kara hücresi için suya (ya da harita kenarına) giden tek bir akış yönü.
+## Sonuç bir ağaçtır: nehirler döngü yapmaz, kesişmez; buluşan kollar birleşir.
+static func _flow_field(map: MapData, heights: PackedFloat32Array, rng: RandomNumberGenerator) -> PackedInt32Array:
+	var W := map.cols
+	var H := map.rows
+	var n := W * H
+	var flow := PackedInt32Array()
+	flow.resize(n)
+	flow.fill(-1)
+	var done := PackedByteArray()
+	done.resize(n)
+	const LEVELS := 512
+	var buckets: Array = []
+	for i in LEVELS:
+		buckets.append(PackedInt32Array())
+	var lvl := func(h: float) -> int: return clampi(int(h * LEVELS), 0, LEVELS - 1)
+	# tohumlar: tüm su hücreleri ve harita kenarı
+	for r in H:
+		for c in W:
+			var k := r * W + c
+			if Defs.water_lookup[map.terrain[k]] == 1 or c == 0 or r == 0 or c == W - 1 or r == H - 1:
+				done[k] = 1
+				buckets[lvl.call(heights[k])].append(k)
 	var dirs := [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1),
 			Vector2i(1, 1), Vector2i(-1, 1), Vector2i(1, -1), Vector2i(-1, -1)]
-	for s in sources:
-		var cur := Vector2i(s)
-		var pts := PackedVector2Array()
-		var visited := {}
-		var reached_water := false
-		for step in 400 + maxi(map.cols, map.rows):
-			pts.append((Vector2(cur) + Vector2(0.5, 0.5)) * Defs.CELL)
-			visited[cur] = true
-			if Defs.water_lookup[map.terrain[map.idx(cur.x, cur.y)]] == 1:
-				reached_water = true
-				break
-			var best := cur
-			var best_h := INF
-			for d in dirs:
-				var n: Vector2i = cur + d
-				if not map.in_bounds(n.x, n.y) or visited.has(n):
+	var cur_l := 0
+	while cur_l < LEVELS:
+		var b: PackedInt32Array = buckets[cur_l]
+		if b.is_empty():
+			cur_l += 1
+			continue
+		buckets[cur_l] = PackedInt32Array()
+		var head := 0
+		while head < b.size():
+			var k := b[head]
+			head += 1
+			var c := k % W
+			var r := k / W
+			var order := dirs.duplicate()
+			order.shuffle()   # düz alanlarda hafif doğal kıvrım
+			for d: Vector2i in order:
+				var nc := c + d.x
+				var nr := r + d.y
+				if nc < 0 or nr < 0 or nc >= W or nr >= H:
 					continue
-				# biraz rastgelelik nehirleri daha doğal kıvırır
-				var h := heights[map.idx(n.x, n.y)] + rng.randf() * 0.012
-				if h < best_h:
-					best_h = h
-					best = n
-			if best == cur:
-				break
-			if best_h > heights[map.idx(cur.x, cur.y)] + 0.02:
-				# çukura düştü: küçük bir göl oluştur
-				for dy in range(-1, 2):
-					for dx in range(-1, 2):
-						if map.in_bounds(cur.x + dx, cur.y + dy):
-							map.terrain[map.idx(cur.x + dx, cur.y + dy)] = T.SHALLOW
-				reached_water = true
-				break
-			cur = best
-		if reached_water and pts.size() > 6:
-			map.paths.append({"type": "river", "points": smooth(pts, 2), "name": Defs.random_name() + " Nehri", "width": 4.0})
+				var nk := nr * W + nc
+				if done[nk] == 1:
+					continue
+				done[nk] = 1
+				flow[nk] = k
+				var nl := maxi(cur_l, lvl.call(heights[nk]))
+				if nl == cur_l:
+					b.append(nk)
+				else:
+					buckets[nl].append(nk)
+	return flow
 
 
 static func _nature_symbols(map: MapData, rng: RandomNumberGenerator) -> void:

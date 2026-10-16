@@ -313,7 +313,7 @@ Bu uygulamayla oyun dünyanı çizebilir; şehirler, zindanlar ve iç içe harit
 • [g]Kaydet[/g] ile seçtiğin yerde (varsayılan Belgeler). Otomatik kayıt: Windows'ta [b]%APPDATA%\\Godot\\app_userdata\\FRP Harita Ustasi\\autosave.frp[/b].
 
 [b]Haritam çok büyük, yavaşladı[/b]
-• Semboller parçalara bölünerek çizilir; ekranda görünmeyenler çizilmez. Çok uzaklaşınca küçük dağ / orman sembolleri gizlenir (arazi rengi zaten görünür).
+• Semboller parçalara bölünerek çizilir; ekranda görünmeyenler çizilmez.
 • Hâlâ yavaşsa HD görünümü kapatmayı dene. Çok büyük haritalarda geri alma geçmişi kısalır (bellek için).
 
 [b]Bir şeyi yanlışlıkla sildim[/b]

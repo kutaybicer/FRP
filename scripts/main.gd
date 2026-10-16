@@ -359,6 +359,40 @@ func _toast(text: String) -> void:
 
 # =================================================================== kısayollar
 
+## Esc her yerde çalışsın: arayüzde bir düğme / kaydırıcı odaktayken de (yazı kutusu hariç)
+## elindeki aracı (fırça, sembol, yol, jeton...) bırakır.
+func _input(event: InputEvent) -> void:
+	if not (event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE):
+		return
+	var f := get_viewport().gui_get_focus_owner()
+	if f is LineEdit or f is TextEdit or f is SpinBox:
+		return
+	if dice_overlay and dice_overlay.visible:
+		return
+	if f and f.get_window() != get_window():
+		return   # açık bir pencere / diyalog Esc'yi kendisi kullansın
+	for w in [guide, editor, bestiary, new_dialog]:
+		if w != null and w.visible:
+			return
+	if view.tool == T.SELECT and view.selected_kind == "":
+		return
+	if f:
+		f.release_focus()
+	_escape()
+	get_viewport().set_input_as_handled()
+
+
+func _escape() -> void:
+	# Esc: yerleştirmeyi iptal et / elindeki aracı bırak (Seç'e dön) / seçimi kaldır
+	if view.tool == T.TOKEN and view.token_char != "":
+		view.cancel_placement()
+	elif view.tool != T.SELECT:
+		_set_tool(T.SELECT)
+		_toast("Araç bırakıldı (Seç / Taşı).")
+	else:
+		view.clear_selection()
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if not (event is InputEventKey and event.pressed and not event.echo):
 		return
@@ -380,15 +414,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		KEY_TAB: _set_play(not view.play_mode)
 		KEY_DELETE: view.delete_selected()
 		KEY_BACKSPACE: _go_up()
-		KEY_ESCAPE:
-			# Esc: yerleştirmeyi iptal et / elindeki aracı bırak (Seç'e dön) / seçimi kaldır
-			if view.tool == T.TOKEN and view.token_char != "":
-				view.cancel_placement()
-			elif view.tool != T.SELECT:
-				_set_tool(T.SELECT)
-				_toast("Araç bırakıldı (Seç / Taşı).")
-			else:
-				view.clear_selection()
+		KEY_ESCAPE: _escape()
 		KEY_HOME: _fit()
 		KEY_D: _toggle_dice_tray()
 		KEY_F1: guide.open()

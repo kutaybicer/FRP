@@ -243,9 +243,8 @@ func redraw() -> void:
 
 
 func _process(_delta: float) -> void:
-	# çok uzaktan bakınca minicik kalan doğa sembollerini gizle
-	if _nature_root:
-		_nature_root.visible = _zoom() * Defs.SYMBOL_BASE >= 7.0
+	# semboller her yakınlaştırma seviyesinde görünür
+	pass
 
 
 func _chunk_key(s: Dictionary) -> String:

@@ -17,6 +17,19 @@ FRP kampanyaları için iç içe harita tasarlama aracı. Dünya haritası çiz,
 | `scripts/symbol_painter.gd` | 45'ten fazla sembolün vektör çizimi |
 | `scripts/camera_rig.gd` | Kaydırma ve yakınlaştırma |
 | `scripts/main.gd` | Arayüz, gezinme, dosya işlemleri |
+| `scripts/lore.gd` | (Autoload `Lore`) Irklar, sınıflar, yönelimler, boyutlar ve bestiyer (yaratık kataloğu) |
+| `scripts/portrait_painter.gd` | Karakter ve yaratık portrelerinin vektör çizimi |
+| `scripts/portrait_cache.gd` | (Autoload `Portraits`) Portreleri shader ile bir kez çizip doku olarak saklar |
+| `scripts/character_editor.gd` | Karakter kartı penceresi |
+| `scripts/bestiary_window.gd` | Bestiyer penceresi |
+
+## Karakterler ve yaratıklar
+- **Kahramanlar ve NPC'ler** 26 ırk ve 17 sınıftan oluşturulabilir. İnsan, Yüksek/Orman/Kara Elf, Yarı-Elf, Cüce, Buçukluk, Gnom, Yarı-Ork, Ork, Goblin, Hobgoblin, Kobold, Şeytansoyu, Ejderdoğan, Göksoylu, Dağ Devi Soyu, Kedi/Kertenkele/Kuş/Tavşan Halkı, Minotor, Sentor, Orman Devi Soyu, Elementsoyu ve Deniz Halkı var. Savaşçı, Barbar, Paladin, Korucu, Hırsız, Büyücü, Sihirbaz, Ahitli, Rahip, Druid, Ozan, Keşiş ve Mucit sınıflarına ek olarak Köylü, Tüccar, Soylu ve Muhafız NPC sınıfları da var.
+- **Bestiyer**: 150'den fazla hayvan, kuş, deniz canlısı, böcek, ejderha, fantastik yaratık, canavar, ölümsüz, elemental ve insansı düşman. Her birinin can, zırh sınıfı, tehlike derecesi ve saldırıları hazır gelir.
+- **Karakter kartı**: kimlik, görünüm (kafa, kulak, saç, sakal, boynuz, işaret, başlık, kıyafet, silah, kanat ve tüm renkler), yetenek puanları (4d6 zar ya da standart dizi, ırk bonusları, değiştiriciler), can, zırh sınıfı, hız, XP, altın ve notlar.
+- **Portreler** tamamen kodla çizilir. Shader ile boya dokusu, ışık ve gölge eklenir. Portreler bir kez çizilip önbelleğe alındığı için harita jetonları hızlıdır ve her yakınlaştırmada pürüzsüz görünür.
+- **Jetonlar** (Karakter aracı, C): Kahramanlar ve NPC'ler aynı anda tek bir haritada bulunur, yeniden yerleştirince taşınırlar. Yaratıklardan istediğin kadar koyabilirsin (Kurt 1, Kurt 2...); her jetonun kendi canı vardır. Jeton halkasının rengi tarafını gösterir (dost, tarafsız, düşman). Can çubuğu ve ölü işareti de var. Kahramanlar ilerledikçe savaş sisi açılır.
+- Jetona tıklayınca sağ panelde hasar/iyileştirme düğmeleri ve hızlı istatistikler görünür. **Karakterler** sekmesi bütün kadroyu ve her karakterin hangi haritada olduğunu listeler.
 
 ## Görüntü kalitesi
 - **HD Görünüm** (üst çubuk, varsayılan açık): Arazi GPU'da shader ile çizilir (`shaders/`). Organik kıyılar, mürekkep kıyı çizgisi, kıyı dalgaları, sığ su geçişi, arazi dokuları (orman, dağ gölgesi, kum tepeleri, kaldırım taşı, ahşap tahta, taş duvar, lav çatlakları) ve yumuşak krallık sınırları burada. Kapatınca klasik kare hücre görünümüne döner. Zindan ve bina haritalarında duvarlar düz kalsın diye kıyı bükmesi kapalıdır.
@@ -28,7 +41,7 @@ FRP kampanyaları için iç içe harita tasarlama aracı. Dünya haritası çiz,
 ## Kısayollar
 | Tuş | İş |
 |---|---|
-| V B G R P S T F M E Q | Seç, Arazi, Kova, Krallık, Nehir/Yol, Sembol, Yazı, Sis, Ölç, Silgi, Grup |
+| V B G R P S T F M E Q C | Seç, Arazi, Kova, Krallık, Nehir/Yol, Sembol, Yazı, Sis, Ölç, Silgi, Grup, Karakter |
 | Tab | Düzenleme ↔ Masa modu |
 | Çift tık (sembol) | Alt haritaya gir; yoksa oluşturur |
 | Backspace | Üst haritaya dön |

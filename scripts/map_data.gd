@@ -25,6 +25,7 @@ var regions: Array = []
 var paths: Array = []
 var symbols: Array = []
 var labels: Array = []
+var tokens: Array = []    # {char: karakter id, pos: Vector2, hp: int (yaratıklar için), label: String}
 var party_pos := Vector2(-1, -1)
 
 # kayda girmeyen görünüm durumu
@@ -106,7 +107,7 @@ func to_dict() -> Dictionary:
 		"terrain": terrain.duplicate(), "region": region.duplicate(), "fog": fog.duplicate(),
 		"fog_enabled": fog_enabled,
 		"regions": regions.duplicate(true), "paths": paths.duplicate(true),
-		"symbols": symbols.duplicate(true), "labels": labels.duplicate(true),
+		"symbols": symbols.duplicate(true), "labels": labels.duplicate(true), "tokens": tokens.duplicate(true),
 		"party_pos": party_pos,
 	}
 
@@ -136,4 +137,5 @@ func from_dict(d: Dictionary) -> void:
 	paths = (d.get("paths", []) as Array).duplicate(true)
 	symbols = (d.get("symbols", []) as Array).duplicate(true)
 	labels = (d.get("labels", []) as Array).duplicate(true)
+	tokens = (d.get("tokens", []) as Array).duplicate(true)
 	party_pos = d.get("party_pos", Vector2(-1, -1))

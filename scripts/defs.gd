@@ -4,6 +4,7 @@ extends Node
 
 const CELL := 16            # bir hücrenin piksel boyu
 const SYMBOL_BASE := 18.0   # sembol yarıçapı (boyut çarpanı 1.0 iken)
+const TOKEN_BASE := 15.0    # orta boy karakter jetonunun yarıçapı
 
 enum Kind { WORLD, REGION, CITY, DUNGEON, BUILDING }
 const KIND_NAMES := ["Dünya", "Bölge", "Şehir", "Zindan", "Yapı / İç Mekan"]

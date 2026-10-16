@@ -17,6 +17,12 @@ var tool_grid: GridContainer
 var tool_options: VBoxContainer
 var inspector: VBoxContainer
 var right_tabs: TabContainer
+var char_list: VBoxContainer
+var char_search: LineEdit
+var char_filter := "all"
+var editor: CharacterEditor
+var bestiary: BestiaryWindow
+var _chars_pending := false
 var breadcrumb: HBoxContainer
 var map_tree: Tree
 var campaign_name_edit: LineEdit
@@ -45,6 +51,7 @@ var tool_defs := [
 	{"tool": T.MEASURE, "name": "Ölç", "key": KEY_M, "play": true},
 	{"tool": T.ERASER, "name": "Silgi", "key": KEY_E},
 	{"tool": T.PARTY, "name": "Grup Jetonu", "key": KEY_Q},
+	{"tool": T.TOKEN, "name": "Karakter", "key": KEY_C, "play": true},
 ]
 
 
@@ -60,6 +67,7 @@ func _ready() -> void:
 	view.request_enter.connect(_on_request_enter)
 	view.map_changed.connect(_mark_dirty)
 	view.hover_changed.connect(func(t: String) -> void: status_label.text = t)
+	view.token_placed.connect(_on_token_placed)
 	_build_ui()
 
 	var timer := Timer.new()
@@ -91,6 +99,7 @@ func _process(delta: float) -> void:
 
 func _new_campaign() -> void:
 	campaign = Campaign.new()
+	view.characters = campaign.characters
 	var world := campaign.create_map(Defs.Kind.WORLD, "Dünya Haritası")
 	MapGenerator.generate_terrain(world, randi(), true)
 	save_path = ""
@@ -107,6 +116,7 @@ func _load_campaign(path: String) -> bool:
 		_toast("Dosya açılamadı: " + path)
 		return false
 	campaign = c
+	view.characters = campaign.characters
 	current = null
 	view._history.clear()
 	enter_map(campaign.root_id)
@@ -135,6 +145,7 @@ func enter_map(id: String) -> void:
 	_refresh_tree()
 	_rebuild_tool_options()
 	_refresh_inspector()
+	_refresh_characters()
 	_update_title()
 
 
@@ -250,6 +261,7 @@ func _export_png(path: String) -> void:
 	v.show_grid = view.show_grid
 	v.show_names = view.show_names
 	v.play_mode = view.play_mode
+	v.characters = view.characters
 	v.export_mode = true
 	v.hd = view.hd
 	v.parchment = view.parchment
@@ -333,7 +345,7 @@ func _set_play(on: bool) -> void:
 	view.update_fog_visibility()
 	view.clear_selection()
 	_rebuild_tool_buttons()
-	if on and view.tool not in [T.SELECT, T.FOG, T.MEASURE]:
+	if on and view.tool not in [T.SELECT, T.FOG, T.MEASURE, T.TOKEN]:
 		_set_tool(T.SELECT)
 	else:
 		_set_tool(view.tool)
@@ -439,9 +451,11 @@ func _build_ui() -> void:
 	inspector.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	rscroll.add_child(inspector)
 
+	_build_characters_tab()
+
 	var tree_box := VBoxContainer.new()
 	right_tabs.add_child(tree_box)
-	right_tabs.set_tab_title(1, "Harita Ağacı")
+	right_tabs.set_tab_title(2, "Harita Ağacı")
 	tree_box.add_child(_small("Kampanya adı"))
 	campaign_name_edit = LineEdit.new()
 	campaign_name_edit.text_changed.connect(func(t: String) -> void:
@@ -582,6 +596,9 @@ func _rebuild_tool_options() -> void:
 				current.party_pos = Vector2(-1, -1)
 				view.redraw()))
 			hint_label.text = "Tık: grubu yerleştir"
+		T.TOKEN:
+			_token_options(box)
+			hint_label.text = "Tık: seçili karakteri koy  •  Jetonu sürükle: taşı"
 
 
 func _brush_slider(box: Control) -> void:
@@ -805,6 +822,7 @@ func _do_refresh_inspector() -> void:
 				_inspect_symbol(view.selected)
 		"path": _inspect_path(view.selected)
 		"label": _inspect_label(view.selected)
+		"token": _inspect_token(view.selected)
 		_: _inspect_map()
 	right_tabs.current_tab = 0
 
@@ -1111,6 +1129,296 @@ func _inspect_label(l: Dictionary) -> void:
 	box.add_child(cp)
 	box.add_child(HSeparator.new())
 	var del := _btn("Yazıyı Sil (Del)", func() -> void: view.delete_selected())
+	del.add_theme_color_override("font_color", Color("ff8a7a"))
+	box.add_child(del)
+
+
+# =================================================================== karakterler
+
+func _build_characters_tab() -> void:
+	var cbox := VBoxContainer.new()
+	right_tabs.add_child(cbox)
+	right_tabs.set_tab_title(1, "Karakterler")
+	var row := HBoxContainer.new()
+	cbox.add_child(row)
+	row.add_child(_btn("+ Kahraman", func() -> void: _new_character("pc"), "Yeni oyuncu karakteri"))
+	row.add_child(_btn("+ NPC", func() -> void: _new_character("npc"), "Yeni oyuncu olmayan karakter"))
+	row.add_child(_btn("+ Yaratık", func() -> void: bestiary.open(), "Bestiyerden hayvan, canavar, ejderha..."))
+	var frow := HBoxContainer.new()
+	cbox.add_child(frow)
+	var fo := OptionButton.new()
+	var filters := {"all": "Hepsi", "pc": "Kahramanlar", "npc": "NPC'ler", "creature": "Yaratıklar", "here": "Bu haritada"}
+	for k in filters:
+		fo.add_item(filters[k])
+	fo.item_selected.connect(func(i: int) -> void:
+		char_filter = filters.keys()[i]
+		_refresh_characters())
+	frow.add_child(fo)
+	char_search = LineEdit.new()
+	char_search.placeholder_text = "Ara..."
+	char_search.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	char_search.text_changed.connect(func(_t: String) -> void: _refresh_characters())
+	frow.add_child(char_search)
+	var sc := ScrollContainer.new()
+	sc.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	cbox.add_child(sc)
+	char_list = VBoxContainer.new()
+	char_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	sc.add_child(char_list)
+
+	editor = CharacterEditor.new()
+	ui.add_child(editor)
+	editor.changed.connect(_on_character_changed)
+	editor.place_requested.connect(func(id: String) -> void:
+		editor.hide()
+		_start_place(id))
+	editor.duplicate_requested.connect(func(id: String) -> void:
+		var copy: Dictionary = campaign.characters[id].duplicate(true)
+		copy["name"] = str(copy["name"]) + " (kopya)"
+		campaign.add_character(copy)
+		_mark_dirty()
+		_refresh_characters()
+		editor.open(copy))
+	editor.delete_requested.connect(func(id: String) -> void:
+		_ask("'%s' silinsin mi? Haritalardaki jetonları da kaldırılır." % campaign.characters[id]["name"], func() -> void:
+			campaign.remove_character(id)
+			editor.hide()
+			view.clear_selection()
+			view.redraw()
+			_mark_dirty()
+			_refresh_characters()))
+	bestiary = BestiaryWindow.new()
+	ui.add_child(bestiary)
+	bestiary.picked.connect(func(species: String) -> void:
+		var ch := Lore.new_creature(species)
+		var id := campaign.add_character(ch)
+		_mark_dirty()
+		_refresh_characters()
+		_start_place(id))
+
+
+func _new_character(role: String) -> void:
+	var races := Lore.races.keys()
+	var pcs := []
+	for k in Lore.classes:
+		if Lore.classes[k].get("npc", false) == (role == "npc"):
+			pcs.append(k)
+	var race: String = "human" if randf() < 0.35 else races.pick_random()
+	var ch := Lore.new_character(race, pcs.pick_random(), role)
+	campaign.add_character(ch)
+	_mark_dirty()
+	_refresh_characters()
+	editor.open(ch)
+
+
+func _start_place(id: String) -> void:
+	view.token_char = id
+	_set_tool(T.TOKEN)
+	var ch: Dictionary = campaign.characters.get(id, {})
+	_toast("Haritaya tıklayarak yerleştir: " + str(ch.get("name", "")))
+
+
+func _on_token_placed(id: String) -> void:
+	var ch: Dictionary = campaign.characters.get(id, {})
+	if ch.get("kind", "") != "creature":
+		# kahraman/NPC aynı anda tek yerde bulunur
+		for m in campaign.maps.values():
+			if m == current:
+				continue
+			for i in range(m.tokens.size() - 1, -1, -1):
+				if m.tokens[i].get("char", "") == id:
+					m.tokens.remove_at(i)
+	_mark_dirty()
+	_refresh_characters()
+
+
+func _on_character_changed(_id: String) -> void:
+	_mark_dirty()
+	view.redraw()
+	_refresh_characters()
+	if view.selected_kind == "token":
+		_refresh_inspector()
+
+
+func _open_editor(id: String) -> void:
+	if campaign.characters.has(id):
+		editor.open(campaign.characters[id])
+
+
+func _refresh_characters() -> void:
+	if not _chars_pending:
+		_chars_pending = true
+		_do_refresh_characters.call_deferred()
+
+
+func _do_refresh_characters() -> void:
+	_chars_pending = false
+	if char_list == null or campaign == null:
+		return
+	_clear(char_list)
+	var q := char_search.text.strip_edges().to_lower()
+	var here := {}
+	if current:
+		for t in current.tokens:
+			here[t.get("char", "")] = true
+	var ids: Array = campaign.characters.keys()
+	var order := {"pc": 0, "npc": 1, "creature": 2}
+	ids.sort_custom(func(a, b):
+		var ca: Dictionary = campaign.characters[a]
+		var cb: Dictionary = campaign.characters[b]
+		var oa: int = order.get(ca.get("role", "pc"), 3)
+		var ob: int = order.get(cb.get("role", "pc"), 3)
+		if oa != ob:
+			return oa < ob
+		return str(ca["name"]).naturalnocasecmp_to(str(cb["name"])) < 0)
+	var shown := 0
+	for id in ids:
+		var ch: Dictionary = campaign.characters[id]
+		match char_filter:
+			"pc", "npc", "creature":
+				if ch.get("role", "") != char_filter:
+					continue
+			"here":
+				if not here.has(id):
+					continue
+		if q != "" and str(ch["name"]).to_lower().find(q) < 0 and Lore.describe(ch).to_lower().find(q) < 0:
+			continue
+		shown += 1
+		var row := HBoxContainer.new()
+		char_list.add_child(row)
+		row.add_child(PortraitRect.new(ch["look"], 54, 256))
+		var v := VBoxContainer.new()
+		v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		v.add_theme_constant_override("separation", 0)
+		row.add_child(v)
+		var cid: String = id
+		var nb := _btn(str(ch["name"]), func() -> void: _open_editor(cid), "Karakter kartını aç")
+		nb.flat = true
+		nb.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		nb.clip_text = true
+		nb.add_theme_color_override("font_color", Lore.DISPOSITION_COLORS.get(ch.get("disposition", "neutral"), Color.WHITE).lightened(0.3))
+		v.add_child(nb)
+		v.add_child(_small(Lore.describe(ch)))
+		var locs: Array = campaign.locations_of(cid)
+		if not locs.is_empty():
+			var names := []
+			for m in locs:
+				names.append(m.name)
+			v.add_child(_small("Konum: " + ", ".join(names)))
+		row.add_child(_btn("Koy", func() -> void: _start_place(cid), "Haritaya tıklayarak yerleştir"))
+	if shown == 0:
+		_hint(char_list, "Henüz karakter yok. Yukarıdaki düğmelerle kahraman, NPC ya da bestiyerden yaratık ekle.")
+
+
+func _token_options(box: Control) -> void:
+	_hint(box, "Bir karakter seç, sonra haritaya tıkla. Kahramanlar ve NPC'ler tek yerde bulunur (yeniden koyunca taşınır). Yaratıklardan istediğin kadar koyabilirsin.")
+	var row := HBoxContainer.new()
+	box.add_child(row)
+	row.add_child(_btn("+ Kahraman", func() -> void: _new_character("pc")))
+	row.add_child(_btn("+ Yaratık", func() -> void: bestiary.open()))
+	var grid := GridContainer.new()
+	grid.columns = 3
+	box.add_child(grid)
+	var group := ButtonGroup.new()
+	for id in campaign.characters:
+		var ch: Dictionary = campaign.characters[id]
+		var b := Button.new()
+		b.toggle_mode = true
+		b.button_group = group
+		b.focus_mode = Control.FOCUS_NONE
+		b.custom_minimum_size = Vector2(82, 98)
+		b.tooltip_text = "%s\n%s" % [ch["name"], Lore.describe(ch)]
+		b.button_pressed = view.token_char == id
+		var v := VBoxContainer.new()
+		v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		b.add_child(v)
+		var pr := PortraitRect.new(ch["look"], 66, 256)
+		pr.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		v.add_child(pr)
+		var l := Label.new()
+		l.text = str(ch["name"])
+		l.clip_text = true
+		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		l.add_theme_font_size_override("font_size", 11)
+		l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		v.add_child(l)
+		var cid: String = id
+		b.pressed.connect(func() -> void: view.token_char = cid)
+		grid.add_child(b)
+
+
+func _inspect_token(tok: Dictionary) -> void:
+	var box := inspector
+	var id := str(tok.get("char", ""))
+	var ch: Dictionary = campaign.characters.get(id, {})
+	if ch.is_empty():
+		_inspect_map()
+		return
+	var creature: bool = ch.get("kind", "") == "creature"
+	var nm := str(ch["name"]) + ((" " + str(tok.get("label", ""))) if str(tok.get("label", "")) != "" else "")
+	box.add_child(_header(nm.to_upper()))
+	var pr := PortraitRect.new(ch["look"], 150, 256)
+	pr.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	box.add_child(pr)
+	box.add_child(_small(Lore.describe(ch) + "  •  " + Lore.ROLES.get(ch.get("role", ""), "")))
+	var hp := int(tok.get("hp", 0)) if creature else int(ch.get("hp", 0))
+	var hp_max := int(ch.get("hp_max", 1))
+	var hpl := _header("CAN: %d / %d" % [hp, hp_max])
+	hpl.add_theme_color_override("font_color", Color("4caf50") if hp > hp_max / 2 else (Color("e0b85c") if hp > hp_max / 4 else Color("ff8a7a")))
+	box.add_child(hpl)
+	var amount := _spin(1, 999, 1, 1, func(_v: float) -> void: pass)
+	var change := func(delta: int) -> void:
+		if creature:
+			tok["hp"] = clampi(int(tok.get("hp", 0)) + delta, -99, hp_max)
+		else:
+			ch["hp"] = clampi(int(ch.get("hp", 0)) + delta, -99, hp_max)
+		_mark_dirty()
+		view.redraw()
+		_refresh_inspector()
+	var row := HBoxContainer.new()
+	box.add_child(row)
+	row.add_child(amount)
+	var dmg := _btn("Hasar", func() -> void: change.call(-int(amount.value)))
+	dmg.add_theme_color_override("font_color", Color("ff8a7a"))
+	row.add_child(dmg)
+	var heal := _btn("İyileştir", func() -> void: change.call(int(amount.value)))
+	heal.add_theme_color_override("font_color", Color("8fd18f"))
+	row.add_child(heal)
+	row.add_child(_btn("Tam", func() -> void: change.call(hp_max - hp), "Canı doldur"))
+	box.add_child(_small("Zırh Sınıfı: %d   •   Hız: %s m   •   İnisiyatif: %s" % [int(ch.get("ac", 10)), str(ch.get("speed", 9)), Lore.mod_text(Lore.total_stat(ch, "dex"))]))
+	var stats := []
+	for s in Lore.STATS:
+		stats.append("%s %d (%s)" % [Lore.STAT_SHORT[s], Lore.total_stat(ch, s), Lore.mod_text(Lore.total_stat(ch, s))])
+	var sl := _small("  ".join(stats))
+	sl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(sl)
+	if creature and str(ch.get("attacks", "")) != "":
+		var al := Label.new()
+		al.text = str(ch["attacks"])
+		al.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		box.add_child(al)
+	var dopt := OptionButton.new()
+	var dkeys := Lore.DISPOSITIONS.keys()
+	for k in dkeys:
+		dopt.add_item(Lore.DISPOSITIONS[k])
+	dopt.selected = maxi(0, dkeys.find(ch.get("disposition", "neutral")))
+	dopt.item_selected.connect(func(i: int) -> void:
+		ch["disposition"] = dkeys[i]
+		_mark_dirty()
+		view.redraw())
+	box.add_child(_small("Taraf"))
+	box.add_child(dopt)
+	if str(ch.get("notes", "")) != "":
+		box.add_child(_small("Notlar"))
+		var nl := Label.new()
+		nl.text = str(ch["notes"])
+		nl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		box.add_child(nl)
+	box.add_child(HSeparator.new())
+	box.add_child(_btn("Karakter Kartını Aç", func() -> void: _open_editor(id)))
+	var del := _btn("Jetonu Haritadan Kaldır (Del)", func() -> void: view.delete_selected())
 	del.add_theme_color_override("font_color", Color("ff8a7a"))
 	box.add_child(del)
 

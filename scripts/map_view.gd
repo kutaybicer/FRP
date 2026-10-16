@@ -7,8 +7,9 @@ signal selection_changed
 signal request_enter(symbol: Dictionary)
 signal map_changed
 signal hover_changed(text: String)
+signal token_placed(char_id: String)
 
-enum Tool { SELECT, TERRAIN, FILL, REGION, PATH, SYMBOL, LABEL, FOG, MEASURE, ERASER, PARTY }
+enum Tool { SELECT, TERRAIN, FILL, REGION, PATH, SYMBOL, LABEL, FOG, MEASURE, ERASER, PARTY, TOKEN }
 
 const CELL := Defs.CELL
 const PARTY_RADIUS := 15.0
@@ -16,6 +17,8 @@ const PARTY_SIGHT := 5   # grubun çevresinde açılan sis (hücre)
 const HISTORY_LIMIT := 60
 
 var map: MapData
+var characters: Dictionary = {}   # kampanyanın karakterleri (main atar)
+var token_char := ""               # Karakter aracıyla yerleştirilecek karakter
 var cam: CameraRig
 var tool: int = Tool.SELECT
 var play_mode := false
@@ -65,6 +68,7 @@ var _terrain_sprite: Sprite2D
 var _region_sprite: Sprite2D
 var _fog_sprite: Sprite2D
 var _objects: Node2D
+var _tokens: Node2D
 var _top: Node2D
 var _font: Font        # arayüz ipuçları
 var _font_title: Font  # bölge isimleri, yazılar
@@ -88,6 +92,7 @@ var _measure_b := Vector2.INF
 var _measuring := false
 var _mouse := Vector2.ZERO
 var _hover: Dictionary = {}
+var _hover_token: Dictionary = {}
 var _hover_cell := Vector2i(-1, -1)
 var export_mode := false   # PNG dışa aktarırken araç ipuçlarını gizle
 
@@ -107,6 +112,11 @@ func _ready() -> void:
 	_objects = Node2D.new()
 	add_child(_objects)
 	_objects.draw.connect(_draw_objects)
+	_tokens = Node2D.new()
+	_tokens.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	add_child(_tokens)
+	_tokens.draw.connect(_draw_tokens)
+	Portraits.texture_ready.connect(func(_k: String) -> void: _tokens.queue_redraw())
 	_fog_sprite = _make_sprite(TEXTURE_FILTER_LINEAR)
 	_top = Node2D.new()
 	add_child(_top)
@@ -199,6 +209,7 @@ func update_fog_visibility() -> void:
 
 func redraw() -> void:
 	_objects.queue_redraw()
+	_tokens.queue_redraw()
 	_top.queue_redraw()
 
 
@@ -332,6 +343,7 @@ func _remove_object(obj: Dictionary, kind: String) -> void:
 		"symbol": map.symbols.erase(obj)
 		"path": map.paths.erase(obj)
 		"label": map.labels.erase(obj)
+		"token": map.tokens.erase(obj)
 	redraw()
 
 
@@ -426,6 +438,38 @@ func _on_press(event: InputEventMouseButton) -> void:
 			map.party_pos = p
 			_reveal_around_party()
 			redraw()
+		Tool.TOKEN:
+			var hit := _hit_token(p)
+			if not hit.is_empty():
+				_grab(hit, "token", p)
+			elif characters.has(token_char):
+				place_token(token_char, p)
+
+
+## Karakteri haritaya koyar. Karakterler tek jeton (taşınır), yaratıklar her tıkta yeni jeton.
+func place_token(char_id: String, p: Vector2) -> void:
+	var ch: Dictionary = characters[char_id]
+	record()
+	var tok := {"char": char_id, "pos": p}
+	if ch.get("kind", "") == "creature":
+		var n := 1
+		for t in map.tokens:
+			if t.get("char", "") == char_id:
+				n += 1
+		tok["hp"] = int(ch.get("hp_max", 1))
+		tok["label"] = str(n) if n > 1 else ""
+		if n == 2:
+			for t in map.tokens:
+				if t.get("char", "") == char_id and str(t.get("label", "")) == "":
+					t["label"] = "1"
+	else:
+		for i in range(map.tokens.size() - 1, -1, -1):
+			if map.tokens[i].get("char", "") == char_id:
+				map.tokens.remove_at(i)
+	map.tokens.append(tok)
+	_reveal_around(tok)
+	select(tok, "token")
+	token_placed.emit(char_id)
 
 
 func _default_symbol_name(type: String) -> String:
@@ -448,6 +492,9 @@ func _on_release() -> void:
 	if _drag_party:
 		_drag_party = false
 		_reveal_around_party()
+	if selected_kind == "token" and _drag_recorded:
+		_reveal_around(selected)
+	_drag_recorded = false
 	redraw()
 
 
@@ -483,7 +530,11 @@ func _on_motion(event: InputEventMouseMotion) -> void:
 
 
 func _update_hover(p: Vector2) -> void:
-	var h := _hit_symbol(p)
+	var tk := _hit_token(p)
+	if tk != _hover_token:
+		_hover_token = tk
+		_top.queue_redraw()
+	var h := _hit_symbol(p) if tk.is_empty() else {}
 	if h != _hover:
 		_hover = h
 		var shape := Input.CURSOR_POINTING_HAND if (not h.is_empty() and _can_enter(h)) else Input.CURSOR_ARROW
@@ -523,13 +574,21 @@ func _select_press(p: Vector2, double: bool) -> void:
 		_drag_obj = false
 		request_enter.emit(hit["obj"])
 		return
-	select(hit["obj"], hit["kind"])
+	_grab(hit["obj"], hit["kind"], p)
+
+
+func _grab(obj: Dictionary, kind: String, p: Vector2) -> void:
+	select(obj, kind)
 	_drag_obj = true
 	_drag_recorded = false
 	_drag_last = p
 
 
 func _play_press(p: Vector2) -> void:
+	var tk := _hit_token(p)
+	if not tk.is_empty():
+		_grab(tk, "token", p)
+		return
 	if map.party_pos.x >= 0 and p.distance_to(map.party_pos) < PARTY_RADIUS * 1.2:
 		record()
 		_drag_party = true
@@ -546,7 +605,7 @@ func _play_press(p: Vector2) -> void:
 
 func _move_object(obj: Dictionary, kind: String, delta: Vector2) -> void:
 	match kind:
-		"symbol", "label":
+		"symbol", "label", "token":
 			obj["pos"] += delta
 		"path":
 			var pts: PackedVector2Array = obj["points"]
@@ -590,7 +649,40 @@ func _hit_path(p: Vector2) -> Dictionary:
 	return {}
 
 
+func token_radius(tok: Dictionary) -> float:
+	var ch: Dictionary = characters.get(tok.get("char", ""), {})
+	var sz := str(ch.get("size", "medium"))
+	return Defs.TOKEN_BASE * float(Lore.SIZES.get(sz, Lore.SIZES["medium"])["token"])
+
+
+func _hit_token(p: Vector2) -> Dictionary:
+	if map == null:
+		return {}
+	for i in range(map.tokens.size() - 1, -1, -1):
+		var t: Dictionary = map.tokens[i]
+		if p.distance_to(t["pos"]) <= token_radius(t):
+			return t
+	return {}
+
+
+## Oyuncu karakterleri ilerledikçe sisi açar
+func _reveal_around(tok: Dictionary) -> void:
+	var ch: Dictionary = characters.get(tok.get("char", ""), {})
+	if not map.fog_enabled or ch.get("role", "") != "pc":
+		return
+	var c := _cell_at(tok["pos"])
+	for dy in range(-PARTY_SIGHT, PARTY_SIGHT + 1):
+		for dx in range(-PARTY_SIGHT, PARTY_SIGHT + 1):
+			if dx * dx + dy * dy <= PARTY_SIGHT * PARTY_SIGHT + 1 and map.in_bounds(c.x + dx, c.y + dy):
+				map.fog[map.idx(c.x + dx, c.y + dy)] = 1
+				_set_fog_px(c.x + dx, c.y + dy)
+	_fog_tex.update(_fog_img)
+
+
 func _hit_any(p: Vector2) -> Dictionary:
+	var tk := _hit_token(p)
+	if not tk.is_empty():
+		return {"obj": tk, "kind": "token"}
 	var s := _hit_symbol(p)
 	if not s.is_empty():
 		return {"obj": s, "kind": "symbol"}
@@ -899,6 +991,49 @@ func _dots(ci: CanvasItem, pts: PackedVector2Array, col: Color, r: float, spacin
 		carry = t - seg_len
 
 
+func _draw_tokens() -> void:
+	if map == null:
+		return
+	var ci := _tokens
+	for tok in map.tokens:
+		var ch: Dictionary = characters.get(tok.get("char", ""), {})
+		if ch.is_empty():
+			continue
+		var pos: Vector2 = tok["pos"]
+		var r := token_radius(tok)
+		ci.draw_circle(pos + Vector2(0, r * 0.12), r * 1.04, Color(0, 0, 0, 0.35))
+		var tex := Portraits.get_texture(ch["look"], 256)
+		if tex:
+			ci.draw_texture_rect(tex, Rect2(pos - Vector2(r, r), Vector2(r, r) * 2.0), false)
+		else:
+			ci.draw_circle(pos, r, Color(0.3, 0.27, 0.22))
+		var dc: Color = Lore.DISPOSITION_COLORS.get(ch.get("disposition", "neutral"), Color.WHITE)
+		ci.draw_arc(pos, r * 0.985, 0, TAU, 48, SymbolPainter.INK, maxf(2.0, r * 0.16), true)
+		ci.draw_arc(pos, r * 0.985, 0, TAU, 48, dc, maxf(1.2, r * 0.09), true)
+		var hp := int(tok.get("hp", ch.get("hp", 0)))
+		var hp_max := maxi(1, int(ch.get("hp_max", 1)))
+		if hp <= 0:
+			ci.draw_circle(pos, r * 0.94, Color(0.1, 0.05, 0.05, 0.55))
+			ci.draw_line(pos + Vector2(-r, -r) * 0.55, pos + Vector2(r, r) * 0.55, Color("d84a3a"), r * 0.14, true)
+			ci.draw_line(pos + Vector2(r, -r) * 0.55, pos + Vector2(-r, r) * 0.55, Color("d84a3a"), r * 0.14, true)
+		if hp < hp_max or ch.get("kind", "") == "creature":
+			var w := r * 1.7
+			var bar := Rect2(pos + Vector2(-w * 0.5, r + 2.0), Vector2(w, maxf(2.5, r * 0.16)))
+			ci.draw_rect(bar.grow(0.8), SymbolPainter.INK, true)
+			var f := clampf(float(hp) / hp_max, 0.0, 1.0)
+			var hc := Color("4caf50") if f > 0.5 else (Color("e0b85c") if f > 0.25 else Color("d84a3a"))
+			ci.draw_rect(Rect2(bar.position, Vector2(bar.size.x * f, bar.size.y)), hc, true)
+		var lbl := str(tok.get("label", ""))
+		if lbl != "":
+			var bp := pos + Vector2(r * 0.72, -r * 0.72)
+			var br := maxf(5.0, r * 0.3)
+			ci.draw_circle(bp, br, SymbolPainter.INK)
+			ci.draw_circle(bp, br * 0.82, dc)
+			_text(ci, bp + Vector2(0, -br * 0.05), lbl, int(br * 1.3), SymbolPainter.INK, Color(0, 0, 0, 0), 0)
+		if show_names:
+			_text(ci, pos + Vector2(0, r + 12.0), str(ch.get("name", "")), 14, SymbolPainter.INK)
+
+
 func _draw_top() -> void:
 	if map == null:
 		return
@@ -914,6 +1049,8 @@ func _draw_top() -> void:
 
 	# seçim vurgusu
 	match selected_kind:
+		"token":
+			ci.draw_arc(selected["pos"], token_radius(selected) + 4.0, 0, TAU, 48, Color("ffcc33"), 2.5 / z, true)
 		"symbol":
 			var r := Defs.SYMBOL_BASE * float(selected.get("size", 1.0)) + 4.0
 			ci.draw_arc(selected["pos"], r, 0, TAU, 40, Color("ffcc33"), 2.5 / z, true)
@@ -944,6 +1081,22 @@ func _draw_top() -> void:
 		ci.draw_circle(_measure_b, 4.0 / z, Color("ffe08a"))
 		_draw_tooltip(ci, _measure_b + Vector2(12, 18) / z, measure_text(_measure_a, _measure_b), z)
 
+	# yerleştirilecek karakterin önizlemesi
+	if tool == Tool.TOKEN and characters.has(token_char) and _hover_token.is_empty():
+		var ch: Dictionary = characters[token_char]
+		var r := Defs.TOKEN_BASE * float(Lore.SIZES.get(str(ch.get("size", "medium")), Lore.SIZES["medium"])["token"])
+		var tex := Portraits.get_texture(ch["look"], 256)
+		if tex:
+			ci.draw_texture_rect(tex, Rect2(_mouse - Vector2(r, r), Vector2(r, r) * 2.0), false, Color(1, 1, 1, 0.55))
+		ci.draw_arc(_mouse, r, 0, TAU, 40, Color(1, 1, 1, 0.7), 1.5 / z, true)
+	# jeton ipucu
+	if not _hover_token.is_empty() and not _drag_obj:
+		var ch: Dictionary = characters.get(_hover_token.get("char", ""), {})
+		if not ch.is_empty():
+			var hp := int(_hover_token.get("hp", ch.get("hp", 0)))
+			var t := "%s  •  Can %d/%d  •  ZS %d" % [ch.get("name", ""), hp, int(ch.get("hp_max", 0)), int(ch.get("ac", 10))]
+			_draw_tooltip(ci, _mouse + Vector2(14, -14) / z, t, z)
+		return
 	# üzerine gelinen sembol için ipucu
 	if not _hover.is_empty() and not _drag_obj:
 		var nm := str(_hover.get("name", ""))

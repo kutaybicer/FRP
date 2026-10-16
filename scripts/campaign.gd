@@ -7,6 +7,7 @@ const FILE_VERSION := 1
 var name := "Yeni Kampanya"
 var maps: Dictionary = {}   # id -> MapData
 var root_id := ""
+var characters: Dictionary = {}   # id -> karakter sözlüğü (Lore.new_character / new_creature)
 
 
 static func make_id() -> String:
@@ -29,6 +30,35 @@ func create_map(kind: int, map_name: String, parent_id := "") -> MapData:
 	if root_id == "":
 		root_id = m.id
 	return m
+
+
+func add_character(ch: Dictionary) -> String:
+	var id := "c" + make_id().substr(1)
+	while characters.has(id):
+		id = "c" + make_id().substr(1)
+	ch["id"] = id
+	characters[id] = ch
+	return id
+
+
+## Karakteri ve tüm haritalardaki jetonlarını siler.
+func remove_character(id: String) -> void:
+	characters.erase(id)
+	for m in maps.values():
+		for i in range(m.tokens.size() - 1, -1, -1):
+			if m.tokens[i].get("char", "") == id:
+				m.tokens.remove_at(i)
+
+
+## Karakterin bulunduğu haritalar (isimleri)
+func locations_of(id: String) -> Array:
+	var out: Array = []
+	for m in maps.values():
+		for t in m.tokens:
+			if t.get("char", "") == id:
+				out.append(m)
+				break
+	return out
 
 
 func children_of(map_id: String) -> Array:
@@ -68,7 +98,7 @@ func to_dict() -> Dictionary:
 	var md := {}
 	for k in maps:
 		md[k] = maps[k].to_dict()
-	return {"version": FILE_VERSION, "name": name, "root_id": root_id, "maps": md}
+	return {"version": FILE_VERSION, "name": name, "root_id": root_id, "maps": md, "characters": characters.duplicate(true)}
 
 
 func save_to(path: String) -> Error:
@@ -95,6 +125,7 @@ static func load_from(path: String) -> Campaign:
 		var m := MapData.new()
 		m.from_dict(data["maps"][k])
 		c.maps[m.id] = m
+	c.characters = (data.get("characters", {}) as Dictionary).duplicate(true)
 	if not c.maps.has(c.root_id) and not c.maps.is_empty():
 		c.root_id = c.maps.keys()[0]
 	return c

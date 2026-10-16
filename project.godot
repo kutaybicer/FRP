@@ -10,6 +10,8 @@ config/features=PackedStringArray("4.3")
 [autoload]
 
 Defs="*res://scripts/defs.gd"
+Lore="*res://scripts/lore.gd"
+Portraits="*res://scripts/portrait_cache.gd"
 
 [display]
 

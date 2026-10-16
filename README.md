@@ -22,6 +22,8 @@ FRP kampanyaları için iç içe harita tasarlama aracı. Dünya haritası çiz,
 | `scripts/portrait_cache.gd` | (Autoload `Portraits`) Portreleri shader ile bir kez çizip doku olarak saklar |
 | `scripts/character_editor.gd` | Karakter kartı penceresi |
 | `scripts/bestiary_window.gd` | Bestiyer penceresi |
+| `scripts/inventory_panel.gd`, `item_slot.gd`, `item_painter.gd` | Envanter, sürükle-bırak yuvalar, eşya ikonları |
+| `scripts/dice.gd`, `dice_overlay.gd`, `die_button.gd` | Zar ifadeleri, zar tepsisi ve atma animasyonu |
 
 ## Karakterler ve yaratıklar
 - **Kahramanlar ve NPC'ler** 26 ırk ve 17 sınıftan oluşturulabilir. İnsan, Yüksek/Orman/Kara Elf, Yarı-Elf, Cüce, Buçukluk, Gnom, Yarı-Ork, Ork, Goblin, Hobgoblin, Kobold, Şeytansoyu, Ejderdoğan, Göksoylu, Dağ Devi Soyu, Kedi/Kertenkele/Kuş/Tavşan Halkı, Minotor, Sentor, Orman Devi Soyu, Elementsoyu ve Deniz Halkı var. Savaşçı, Barbar, Paladin, Korucu, Hırsız, Büyücü, Sihirbaz, Ahitli, Rahip, Druid, Ozan, Keşiş ve Mucit sınıflarına ek olarak Köylü, Tüccar, Soylu ve Muhafız NPC sınıfları da var.
@@ -30,6 +32,19 @@ FRP kampanyaları için iç içe harita tasarlama aracı. Dünya haritası çiz,
 - **Portreler** tamamen kodla çizilir. Shader ile boya dokusu, ışık ve gölge eklenir. Portreler bir kez çizilip önbelleğe alındığı için harita jetonları hızlıdır ve her yakınlaştırmada pürüzsüz görünür.
 - **Jetonlar** (Karakter aracı, C): Kahramanlar ve NPC'ler aynı anda tek bir haritada bulunur, yeniden yerleştirince taşınırlar. Yaratıklardan istediğin kadar koyabilirsin (Kurt 1, Kurt 2...); her jetonun kendi canı vardır. Jeton halkasının rengi tarafını gösterir (dost, tarafsız, düşman). Can çubuğu ve ölü işareti de var. Kahramanlar ilerledikçe savaş sisi açılır.
 - Jetona tıklayınca sağ panelde hasar/iyileştirme düğmeleri ve hızlı istatistikler görünür. **Karakterler** sekmesi bütün kadroyu ve her karakterin hangi haritada olduğunu listeler.
+
+## Envanter
+- Karakter kartındaki **Envanter** sekmesinde 8 kuşanma yuvası var: Silah 1, Silah 2, Kask, Omuzluk, Gövde Zırhı, Eldiven, Bacak Zırhı, Ayakkabı. Ayrıca sınırsız bir **çanta** var (yedek eşyalar, iksirler, parşömenler...).
+- Bütün eşyalar **tek tiptir** ve her şeyi düzenlenebilir: ad, tür (şablon), ikon, nadirlik (Sıradan → Efsanevi), adet, renk ve serbest **özellik metni** (hasar, büyü, açıklama... ne yazarsan).
+- **Şablonlar** (her türden bir tane): Büyücü Asası, Değnek, Büyü Küresi, Büyük Kılıç, Uzun Kılıç, Kısa Kılıç, Hançer, El Baltası, Savaş Baltası, Savaş Çekici, Gürz, Mızrak, Teber, Tırpan, Kamçı, Yay, Arbalet, Sapan, Kalkan; Kask, Omuzluk, Gövde Zırhı, Eldiven, Bacak Zırhı, Ayakkabı; İksir, Parşömen, Kitap, Yüzük, Kolye, Mücevher, Para Kesesi, Anahtar, Erzak, Meşale, Halat, Ok Demeti, Alet Takımı, Müzik Aleti, Harita/Not, Taş/Malzeme ve **Özel Eşya** (içine ne yazarsan o).
+- Sürükle-bırak ile taşı. Çift tık veya sağ tık eşyayı kuşanır ya da çıkarır. Yuvalar sadece uygun eşyayı kabul eder (kaska kılıç takılmaz).
+- Eşyalar başka bir karaktere verilebilir (ganimet paylaşımı). Yeni karakterler sınıflarına göre başlangıç ekipmanıyla gelir.
+
+## Zarlar
+- Üst çubuktaki **Zarlar (D)** düğmesi zar tepsisini açar. d4, d6, d8, d10, d12, d20 ve d% (d100) var.
+- Adet, bonus, avantaj/dezavantaj ve "atan karakter" seçilebilir. Serbest ifade de yazılabilir: `2d6+3`, `1d8+1d6-1`, `4d6`, `d%`.
+- Zarlar ekrana fırlayıp yuvarlanır, sonra toplam gösterilir. Doğal 20 altın, doğal 1 kırmızı parlar. Son atışlar tepside listelenir.
+- Karakter kartında her yetenek için "d20 At" (yetenek kontrolü) ve "İnisiyatif At" düğmeleri var. Jeton panelinde de hızlı d20 ve inisiyatif atışı yapılabilir.
 
 ## Görüntü kalitesi
 - **HD Görünüm** (üst çubuk, varsayılan açık): Arazi GPU'da shader ile çizilir (`shaders/`). Organik kıyılar, mürekkep kıyı çizgisi, kıyı dalgaları, sığ su geçişi, arazi dokuları (orman, dağ gölgesi, kum tepeleri, kaldırım taşı, ahşap tahta, taş duvar, lav çatlakları) ve yumuşak krallık sınırları burada. Kapatınca klasik kare hücre görünümüne döner. Zindan ve bina haritalarında duvarlar düz kalsın diye kıyı bükmesi kapalıdır.
@@ -45,6 +60,7 @@ FRP kampanyaları için iç içe harita tasarlama aracı. Dünya haritası çiz,
 | Tab | Düzenleme ↔ Masa modu |
 | Çift tık (sembol) | Alt haritaya gir; yoksa oluşturur |
 | Backspace | Üst haritaya dön |
+| D | Zar tepsisi |
 | Ctrl+Z / Ctrl+Y | Geri al / Yinele |
 | Ctrl+S / Ctrl+O | Kaydet / Aç |
 | Delete | Seçiliyi sil |

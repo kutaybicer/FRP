@@ -66,6 +66,21 @@ static func draw(ci: CanvasItem, look: Dictionary, center: Vector2, radius: floa
 	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
+## Başka çizerlerin (eşya ikonları) yardımcıları kullanabilmesi için: kırpma yok, ölçek = radius/100
+static func begin(ci: CanvasItem, center: Vector2, radius: float) -> void:
+	_ci = ci
+	L = {}
+	_center = center
+	_scale = radius / 100.0
+	_ghost = false
+	ci.draw_set_transform(center, 0.0, Vector2.ONE * _scale)
+	_clip = _P([Vector2(-400, -400), Vector2(400, -400), Vector2(400, 400), Vector2(-400, 400)])
+
+
+static func end() -> void:
+	_ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
 ## İç dönüşüm: çizimi kaydır/ölçekle (kırpma çemberi de buna göre ayarlanır)
 static func _tf(off: Vector2, k: float) -> void:
 	_ci.draw_set_transform(_center + off * _scale, 0.0, Vector2.ONE * (_scale * k))

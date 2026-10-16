@@ -23,6 +23,15 @@ var char_filter := "all"
 var editor: CharacterEditor
 var bestiary: BestiaryWindow
 var _chars_pending := false
+var dice_tray: PanelContainer
+var dice_count: SpinBox
+var dice_mod: SpinBox
+var dice_adv := 0
+var dice_who: OptionButton
+var dice_expr: LineEdit
+var dice_history: VBoxContainer
+var dice_overlay: DiceOverlay
+var _roll_log: Array = []
 var breadcrumb: HBoxContainer
 var map_tree: Tree
 var campaign_name_edit: LineEdit
@@ -100,6 +109,7 @@ func _process(delta: float) -> void:
 func _new_campaign() -> void:
 	campaign = Campaign.new()
 	view.characters = campaign.characters
+	editor.characters = campaign.characters
 	var world := campaign.create_map(Defs.Kind.WORLD, "Dünya Haritası")
 	MapGenerator.generate_terrain(world, randi(), true)
 	save_path = ""
@@ -117,6 +127,7 @@ func _load_campaign(path: String) -> bool:
 		return false
 	campaign = c
 	view.characters = campaign.characters
+	editor.characters = campaign.characters
 	current = null
 	view._history.clear()
 	enter_map(campaign.root_id)
@@ -315,6 +326,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			view.clear_selection()
 			view.set_tool(view.tool)
 		KEY_HOME: _fit()
+		KEY_D: _toggle_dice_tray()
 		KEY_H:
 			view.show_grid = not view.show_grid
 			view.redraw()
@@ -398,6 +410,10 @@ func _build_ui() -> void:
 	bar.add_child(_toggle("Parşömen", view.parchment, func(on: bool) -> void: view.parchment = on,
 			"Eski kağıt harita görünümü"))
 	bar.add_child(_btn("Sığdır", _fit, "Home"))
+	bar.add_child(VSeparator.new())
+	var dice_btn := _btn("Zarlar (D)", _toggle_dice_tray, "Zar tepsisini aç / kapat")
+	dice_btn.add_theme_color_override("font_color", GOLD)
+	bar.add_child(dice_btn)
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	bar.add_child(spacer)
@@ -438,6 +454,8 @@ func _build_ui() -> void:
 	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	mid.add_child(center)
+
+	_build_dice_tray(center)
 
 	var right := _panel(mid)
 	right.custom_minimum_size.x = 320
@@ -506,6 +524,11 @@ func _build_ui() -> void:
 	confirm.cancel_button_text = "Vazgeç"
 	confirm.title = "Emin misin?"
 	ui.add_child(confirm)
+
+	dice_overlay = DiceOverlay.new()
+	ui.add_child(dice_overlay)
+	dice_overlay.visible = false
+	editor.rolled.connect(_log_roll)
 
 	_rebuild_tool_buttons()
 	_set_tool(T.SELECT)
@@ -1416,11 +1439,151 @@ func _inspect_token(tok: Dictionary) -> void:
 		nl.text = str(ch["notes"])
 		nl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		box.add_child(nl)
+	var eq := []
+	Lore.ensure_inventory(ch)
+	for k in ["weapon1", "weapon2"]:
+		if not ch["equipment"][k].is_empty():
+			eq.append(str(ch["equipment"][k].get("name", "")))
+	if not eq.is_empty():
+		box.add_child(_small("Silahlar: " + ", ".join(eq)))
+	var rrow := HBoxContainer.new()
+	box.add_child(rrow)
+	rrow.add_child(_btn("d20 At", func() -> void: roll("1d20", str(ch["name"]))))
+	rrow.add_child(_btn("İnisiyatif", func() -> void:
+		var m := Lore.modifier(Lore.total_stat(ch, "dex"))
+		roll("1d20%s" % (("+%d" % m) if m != 0 else ""), str(ch["name"]) + " — İnisiyatif")))
 	box.add_child(HSeparator.new())
 	box.add_child(_btn("Karakter Kartını Aç", func() -> void: _open_editor(id)))
 	var del := _btn("Jetonu Haritadan Kaldır (Del)", func() -> void: view.delete_selected())
 	del.add_theme_color_override("font_color", Color("ff8a7a"))
 	box.add_child(del)
+
+
+# =================================================================== zarlar
+
+func _build_dice_tray(center: Control) -> void:
+	dice_tray = PanelContainer.new()
+	center.add_child(dice_tray)
+	dice_tray.visible = false
+	var v := VBoxContainer.new()
+	dice_tray.add_child(v)
+	var head := HBoxContainer.new()
+	v.add_child(head)
+	var dh := _header("ZAR AT")
+	dh.autowrap_mode = TextServer.AUTOWRAP_OFF
+	head.add_child(dh)
+	var sp := Control.new()
+	sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(sp)
+	head.add_child(_btn("Kapat", _toggle_dice_tray, "D"))
+	var dice_row := HBoxContainer.new()
+	v.add_child(dice_row)
+	for sides in Dice.TYPES:
+		var b := DieButton.new(sides)
+		var sd: int = sides
+		b.pressed.connect(func() -> void: _roll_die(sd))
+		dice_row.add_child(b)
+	var opt := HBoxContainer.new()
+	v.add_child(opt)
+	opt.add_child(_small("Adet"))
+	dice_count = _spin(1, 50, 1, 1, func(_v: float) -> void: pass)
+	opt.add_child(dice_count)
+	opt.add_child(_small("Bonus"))
+	dice_mod = _spin(-50, 50, 1, 0, func(_v: float) -> void: pass)
+	opt.add_child(dice_mod)
+	var group := ButtonGroup.new()
+	for a in [[-1, "Dezavantaj"], [0, "Normal"], [1, "Avantaj"]]:
+		var b := _btn(a[1], func() -> void: pass, "Sadece tek d20 atışında geçerli: iki zar atılır, düşük/yüksek olan sayılır")
+		b.toggle_mode = true
+		b.button_group = group
+		b.button_pressed = a[0] == 0
+		var val: int = a[0]
+		b.pressed.connect(func() -> void: dice_adv = val)
+		opt.add_child(b)
+	var who_row := HBoxContainer.new()
+	v.add_child(who_row)
+	who_row.add_child(_small("Atan"))
+	dice_who = OptionButton.new()
+	dice_who.custom_minimum_size.x = 150
+	who_row.add_child(dice_who)
+	dice_expr = LineEdit.new()
+	dice_expr.placeholder_text = "Serbest: 2d6+3, 1d8+1d6, 4d6, d%"
+	dice_expr.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	dice_expr.text_submitted.connect(func(t: String) -> void: roll(t, _who_name()))
+	who_row.add_child(dice_expr)
+	who_row.add_child(_btn("At", func() -> void: roll(dice_expr.text, _who_name())))
+	dice_history = VBoxContainer.new()
+	v.add_child(dice_history)
+	dice_tray.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
+	dice_tray.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	dice_tray.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	dice_tray.offset_bottom = -10
+
+
+func _toggle_dice_tray() -> void:
+	dice_tray.visible = not dice_tray.visible
+	if dice_tray.visible:
+		var cur := dice_who.selected
+		dice_who.clear()
+		dice_who.add_item("(Genel)")
+		dice_who.set_item_metadata(0, "")
+		for id in campaign.characters:
+			dice_who.add_item(str(campaign.characters[id].get("name", "?")))
+			dice_who.set_item_metadata(dice_who.item_count - 1, id)
+		dice_who.selected = clampi(cur, 0, dice_who.item_count - 1)
+		_refresh_roll_history()
+
+
+func _who_name() -> String:
+	if dice_who == null or dice_who.selected <= 0:
+		return ""
+	return dice_who.get_item_text(dice_who.selected)
+
+
+func _roll_die(sides: int) -> void:
+	var n := int(dice_count.value)
+	var m := int(dice_mod.value)
+	var expr := "%dd%d" % [n, sides]
+	if m != 0:
+		expr += ("+%d" % m) if m > 0 else str(m)
+	var who := _who_name()
+	roll(expr, (who + " — " if who != "" else "") + expr.replace("1d", "d"), dice_adv if (sides == 20 and n == 1) else 0)
+
+
+func roll(expr: String, label := "", adv := 0) -> void:
+	var r := Dice.roll_expr(expr, adv)
+	if not r.get("ok", false):
+		_toast("Geçersiz zar ifadesi: " + expr + "  (örnek: 2d6+3)")
+		return
+	dice_overlay.show_roll(r, label)
+	_log_roll(r, label)
+
+
+func _log_roll(r: Dictionary, label: String) -> void:
+	var time := Time.get_time_string_from_system().substr(0, 5)
+	_roll_log.push_front({"time": time, "label": label, "total": r["total"], "text": r["text"], "nat": r.get("nat", 0)})
+	if _roll_log.size() > 30:
+		_roll_log.pop_back()
+	_toast("Zar: %s = %d" % [label if label != "" else r["expr"], r["total"]])
+	_refresh_roll_history()
+
+
+func _refresh_roll_history() -> void:
+	if dice_history == null:
+		return
+	_clear(dice_history)
+	for i in mini(6, _roll_log.size()):
+		var e: Dictionary = _roll_log[i]
+		var l := Label.new()
+		l.text = "%s   %s   = %d     %s" % [e["time"], e["label"] if e["label"] != "" else "Zar", e["total"], e["text"]]
+		var col := Color(0.85, 0.8, 0.7)
+		if e["nat"] == 20:
+			col = Color("ffd700")
+		elif e["nat"] == 1:
+			col = Color("ff6a5a")
+		l.add_theme_color_override("font_color", col if i == 0 else col.darkened(0.25))
+		l.add_theme_font_size_override("font_size", 14 if i == 0 else 12)
+		dice_history.add_child(l)
 
 
 # =================================================================== gezinme çubuğu & ağaç

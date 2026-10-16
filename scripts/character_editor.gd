@@ -7,6 +7,7 @@ signal changed(id: String)
 signal place_requested(id: String)
 signal duplicate_requested(id: String)
 signal delete_requested(id: String)
+signal rolled(result: Dictionary, label: String)
 
 const GOLD := Color("e0b85c")
 const COLOR_KEYS := {"skin": "Ten", "hair_color": "Saç / Tüy", "eye_color": "Göz", "cloth": "Kıyafet", "accent": "Süsleme / Kürk",
@@ -14,6 +15,8 @@ const COLOR_KEYS := {"skin": "Ten", "hair_color": "Saç / Tüy", "eye_color": "G
 const CREATURE_COLOR_KEYS := {"col": "Ana Renk", "col2": "İkinci Renk", "bg": "Arka Plan"}
 
 var ch: Dictionary = {}
+var characters: Dictionary = {}   # envanterde "başka karaktere ver" için
+var _dice: DiceOverlay
 var _portrait: PortraitRect
 var _title: Label
 var _tabs: TabContainer
@@ -24,7 +27,7 @@ var _derived: Label
 
 func _init() -> void:
 	title = "Karakter Kartı"
-	size = Vector2i(1120, 740)
+	size = Vector2i(1240, 780)
 	min_size = Vector2i(900, 600)
 	transient = true
 	wrap_controls = false
@@ -90,6 +93,10 @@ func _ready() -> void:
 	bottom.add_child(sp)
 	bottom.add_child(_btn("Kapat", hide))
 
+	_dice = DiceOverlay.new()
+	add_child(_dice)
+	_dice.visible = false
+
 	_refresh_timer = Timer.new()
 	_refresh_timer.one_shot = true
 	_refresh_timer.wait_time = 0.12
@@ -129,6 +136,7 @@ func _rebuild() -> void:
 	_tab_identity()
 	_tab_look()
 	_tab_stats()
+	_tab_inventory()
 	_tab_notes()
 	_tabs.current_tab = clampi(cur, 0, _tabs.get_tab_count() - 1)
 
@@ -305,8 +313,8 @@ func _tab_look() -> void:
 
 func _tab_stats() -> void:
 	var box := _page("İstatistikler")
-	var g := _grid(box, 5)
-	for h in ["Yetenek", "Puan", "Irk", "Toplam", "Değiştirici"]:
+	var g := _grid(box, 6)
+	for h in ["Yetenek", "Puan", "Irk", "Toplam", "Değiştirici", "Kontrol"]:
 		var l := Label.new()
 		l.text = h
 		l.add_theme_color_override("font_color", GOLD)
@@ -335,6 +343,9 @@ func _tab_stats() -> void:
 		ml.add_theme_font_size_override("font_size", 18)
 		g.add_child(ml)
 		_stat_labels[s] = [tl, ml]
+		g.add_child(_btn("d20 At", func() -> void:
+			var m := Lore.modifier(Lore.total_stat(ch, key))
+			roll("1d20%s" % (("+%d" % m) if m != 0 else ""), "%s — %s kontrolü" % [ch.get("name", ""), Lore.STAT_NAMES[key]])))
 	var btns := HBoxContainer.new()
 	box.add_child(btns)
 	if not _is_creature():
@@ -379,13 +390,33 @@ func _tab_stats() -> void:
 	else:
 		_row(g2, "Tecrübe (XP)", _spin(0, 999999, int(ch.get("xp", 0)), func(v: float) -> void: ch["xp"] = int(v)))
 		_row(g2, "Altın", _spin(0, 9999999, int(ch.get("gold", 0)), func(v: float) -> void: ch["gold"] = int(v)))
+	var drow := HBoxContainer.new()
+	box.add_child(drow)
 	_derived = Label.new()
 	_derived.add_theme_color_override("font_color", Color(0.85, 0.8, 0.7))
-	box.add_child(_derived)
+	drow.add_child(_derived)
+	drow.add_child(_btn("İnisiyatif At", func() -> void:
+		var m := Lore.modifier(Lore.total_stat(ch, "dex"))
+		roll("1d20%s" % (("+%d" % m) if m != 0 else ""), "%s — İnisiyatif" % ch.get("name", ""))))
 	if _is_creature():
 		box.add_child(_small("Saldırılar ve yetenekler"))
 		box.add_child(_text_edit(str(ch.get("attacks", "")), func(t: String) -> void: ch["attacks"] = t))
 	_refresh_derived()
+
+
+func _tab_inventory() -> void:
+	var inv := InventoryPanel.new(ch, characters)
+	_tabs.add_child(inv)
+	_tabs.set_tab_title(_tabs.get_tab_count() - 1, "Envanter")
+	inv.changed.connect(func() -> void: _changed())
+
+
+func roll(expr: String, label: String) -> void:
+	var r := Dice.roll_expr(expr)
+	if not r.get("ok", false):
+		return
+	_dice.show_roll(r, label)
+	rolled.emit(r, label)
 
 
 func _tab_notes() -> void:

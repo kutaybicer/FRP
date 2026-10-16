@@ -239,6 +239,137 @@ var classes: Dictionary = {
 		"cloth": ["8a9199"], "accent": ["c0392b", "2e86c1"], "bg": "4a4a4a", "helms": ["open", "open", "none"]},
 }
 
+# =============================================================== EŞYALAR
+# Tüm eşyalar tek tiptir: {id, template, icon, name, text, qty, rarity, tint}
+# Şablon sadece varsayılan ad / ikon / açıklama ve hangi yuvaya takılacağını belirler.
+
+const SLOTS := {
+	"weapon1": {"name": "Silah 1 (Ana El)", "accepts": "weapon", "icon": "longsword"},
+	"weapon2": {"name": "Silah 2 (Yan El)", "accepts": "weapon", "icon": "shield"},
+	"helmet": {"name": "Kask", "accepts": "helmet", "icon": "helmet"},
+	"shoulders": {"name": "Omuzluk", "accepts": "shoulders", "icon": "shoulders"},
+	"chest": {"name": "Gövde Zırhı", "accepts": "chest", "icon": "chest"},
+	"gloves": {"name": "Eldiven", "accepts": "gloves", "icon": "gloves"},
+	"legs": {"name": "Bacak Zırhı", "accepts": "legs", "icon": "legs"},
+	"boots": {"name": "Ayakkabı", "accepts": "boots", "icon": "boots"},
+}
+
+const ITEM_CATS := {"weapon": "Silahlar", "armor": "Zırhlar", "misc": "Diğer Eşyalar"}
+
+const RARITIES := {
+	"common": {"name": "Sıradan", "color": Color("8a8580")},
+	"uncommon": {"name": "Seyrek", "color": Color("5fb85f")},
+	"rare": {"name": "Nadir", "color": Color("4a90e2")},
+	"epic": {"name": "Destansı", "color": Color("a45ee5")},
+	"legendary": {"name": "Efsanevi", "color": Color("f0a030")},
+}
+
+var item_templates: Dictionary = {
+	# --- silahlar
+	"staff": {"name": "Büyücü Asası", "cat": "weapon", "slot": "weapon", "text": "Hasar: 1d6 ezici (iki el: 1d8)\nBüyü odağı\nAğırlık: 2 kg"},
+	"wand": {"name": "Değnek", "cat": "weapon", "slot": "weapon", "text": "Büyü odağı\nYük: 7 kullanım\nAğırlık: 0.5 kg"},
+	"orb": {"name": "Büyü Küresi", "cat": "weapon", "slot": "weapon", "text": "Büyü odağı\nAğırlık: 1.5 kg"},
+	"greatsword": {"name": "Büyük Kılıç", "cat": "weapon", "slot": "weapon", "text": "Hasar: 2d6 kesici\nİki elli, ağır\nAğırlık: 3 kg"},
+	"longsword": {"name": "Uzun Kılıç", "cat": "weapon", "slot": "weapon", "text": "Hasar: 1d8 kesici (iki el: 1d10)\nAğırlık: 1.5 kg"},
+	"shortsword": {"name": "Kısa Kılıç", "cat": "weapon", "slot": "weapon", "text": "Hasar: 1d6 delici\nÇevik, hafif\nAğırlık: 1 kg"},
+	"dagger": {"name": "Hançer", "cat": "weapon", "slot": "weapon", "text": "Hasar: 1d4 delici\nÇevik, hafif, fırlatılabilir (6/18 m)\nAğırlık: 0.5 kg"},
+	"axe": {"name": "El Baltası", "cat": "weapon", "slot": "weapon", "text": "Hasar: 1d6 kesici\nHafif, fırlatılabilir\nAğırlık: 1 kg"},
+	"greataxe": {"name": "Savaş Baltası", "cat": "weapon", "slot": "weapon", "text": "Hasar: 1d12 kesici\nİki elli, ağır\nAğırlık: 3.5 kg"},
+	"hammer": {"name": "Savaş Çekici", "cat": "weapon", "slot": "weapon", "text": "Hasar: 1d8 ezici (iki el: 1d10)\nAğırlık: 1 kg"},
+	"mace": {"name": "Gürz", "cat": "weapon", "slot": "weapon", "text": "Hasar: 1d6 ezici\nAğırlık: 2 kg"},
+	"spear": {"name": "Mızrak", "cat": "weapon", "slot": "weapon", "text": "Hasar: 1d6 delici (iki el: 1d8)\nFırlatılabilir (6/18 m)\nAğırlık: 1.5 kg"},
+	"halberd": {"name": "Teber", "cat": "weapon", "slot": "weapon", "text": "Hasar: 1d10 kesici\nİki elli, ağır, uzun menzil\nAğırlık: 3 kg"},
+	"scythe": {"name": "Tırpan", "cat": "weapon", "slot": "weapon", "text": "Hasar: 2d4 kesici\nİki elli\nAğırlık: 2.5 kg"},
+	"whip": {"name": "Kamçı", "cat": "weapon", "slot": "weapon", "text": "Hasar: 1d4 kesici\nÇevik, uzun menzil\nAğırlık: 1.5 kg"},
+	"bow": {"name": "Yay", "cat": "weapon", "slot": "weapon", "text": "Hasar: 1d8 delici\nMenzil: 45/180 m, iki elli\nAğırlık: 1 kg"},
+	"crossbow": {"name": "Arbalet", "cat": "weapon", "slot": "weapon", "text": "Hasar: 1d10 delici\nMenzil: 30/120 m, yeniden doldurma\nAğırlık: 3 kg"},
+	"sling": {"name": "Sapan", "cat": "weapon", "slot": "weapon", "text": "Hasar: 1d4 ezici\nMenzil: 9/36 m"},
+	"shield": {"name": "Kalkan", "cat": "weapon", "slot": "weapon", "text": "Zırh Sınıfı: +2\nAğırlık: 3 kg"},
+	# --- zırhlar
+	"helmet": {"name": "Kask", "cat": "armor", "slot": "helmet", "text": "Zırh: +0\nAğırlık: 1 kg"},
+	"shoulders": {"name": "Omuzluk", "cat": "armor", "slot": "shoulders", "text": "Zırh: +0\nAğırlık: 2 kg"},
+	"chest": {"name": "Gövde Zırhı", "cat": "armor", "slot": "chest", "text": "Zırh Sınıfı: 14 + Çev (en fazla 2)\nAğırlık: 10 kg"},
+	"gloves": {"name": "Eldiven", "cat": "armor", "slot": "gloves", "text": "Ağırlık: 0.5 kg"},
+	"legs": {"name": "Bacak Zırhı", "cat": "armor", "slot": "legs", "text": "Zırh: +0\nAğırlık: 3 kg"},
+	"boots": {"name": "Ayakkabı", "cat": "armor", "slot": "boots", "text": "Ağırlık: 1 kg"},
+	# --- diğer
+	"potion": {"name": "İksir", "cat": "misc", "slot": "", "text": "Şifa İksiri: içince 2d4+2 can yeniler"},
+	"scroll": {"name": "Parşömen", "cat": "misc", "slot": "", "text": "Büyü parşömeni: "},
+	"book": {"name": "Kitap", "cat": "misc", "slot": "", "text": ""},
+	"ring": {"name": "Yüzük", "cat": "misc", "slot": "", "text": ""},
+	"amulet": {"name": "Kolye", "cat": "misc", "slot": "", "text": ""},
+	"gem": {"name": "Mücevher", "cat": "misc", "slot": "", "text": "Değer: 50 altın"},
+	"pouch": {"name": "Para Kesesi", "cat": "misc", "slot": "", "text": "İçinde: "},
+	"key": {"name": "Anahtar", "cat": "misc", "slot": "", "text": "Açtığı yer: "},
+	"food": {"name": "Erzak", "cat": "misc", "slot": "", "text": "1 günlük yiyecek"},
+	"torch": {"name": "Meşale", "cat": "misc", "slot": "", "text": "1 saat yanar, 6 m ışık"},
+	"rope": {"name": "Halat", "cat": "misc", "slot": "", "text": "15 m kenevir halat"},
+	"arrows": {"name": "Ok Demeti", "cat": "misc", "slot": "", "text": "Mühimmat"},
+	"tools": {"name": "Alet Takımı", "cat": "misc", "slot": "", "text": "Hırsız aletleri / zanaat aletleri"},
+	"instrument": {"name": "Müzik Aleti", "cat": "misc", "slot": "", "text": "Lavta"},
+	"map": {"name": "Harita / Not", "cat": "misc", "slot": "", "text": ""},
+	"rock": {"name": "Taş / Malzeme", "cat": "misc", "slot": "", "text": ""},
+	"custom": {"name": "Özel Eşya", "cat": "misc", "slot": "", "text": ""},
+}
+
+# Sınıfa göre başlangıç ekipmanı: [şablon, yuva ("" = çanta), adet]
+const CLASS_KITS := {
+	"fighter": [["longsword", "weapon1"], ["shield", "weapon2"], ["helmet", "helmet"], ["chest", "chest"], ["boots", "boots"], ["potion", "", 2]],
+	"barbarian": [["greataxe", "weapon1"], ["axe", "weapon2"], ["boots", "boots"], ["food", "", 3]],
+	"paladin": [["hammer", "weapon1"], ["shield", "weapon2"], ["helmet", "helmet"], ["chest", "chest"], ["shoulders", "shoulders"], ["gloves", "gloves"], ["legs", "legs"], ["boots", "boots"]],
+	"ranger": [["bow", "weapon1"], ["shortsword", "weapon2"], ["chest", "chest"], ["boots", "boots"], ["arrows", "", 20], ["rope", ""]],
+	"rogue": [["dagger", "weapon1"], ["shortsword", "weapon2"], ["chest", "chest"], ["gloves", "gloves"], ["boots", "boots"], ["tools", ""]],
+	"wizard": [["staff", "weapon1"], ["boots", "boots"], ["book", ""], ["scroll", "", 2]],
+	"sorcerer": [["orb", "weapon1"], ["dagger", "weapon2"], ["boots", "boots"], ["potion", ""]],
+	"warlock": [["wand", "weapon1"], ["dagger", "weapon2"], ["boots", "boots"], ["book", ""]],
+	"cleric": [["mace", "weapon1"], ["shield", "weapon2"], ["chest", "chest"], ["boots", "boots"], ["amulet", ""], ["potion", "", 2]],
+	"druid": [["staff", "weapon1"], ["boots", "boots"], ["food", "", 2]],
+	"bard": [["shortsword", "weapon1"], ["dagger", "weapon2"], ["boots", "boots"], ["instrument", ""]],
+	"monk": [["staff", "weapon1"], ["boots", "boots"], ["food", "", 2]],
+	"artificer": [["hammer", "weapon1"], ["crossbow", "weapon2"], ["chest", "chest"], ["gloves", "gloves"], ["tools", ""]],
+	"commoner": [["boots", "boots"], ["food", "", 2]],
+	"merchant": [["dagger", "weapon1"], ["pouch", ""], ["key", ""]],
+	"noble": [["shortsword", "weapon1"], ["ring", ""], ["pouch", ""]],
+	"guard": [["spear", "weapon1"], ["shield", "weapon2"], ["helmet", "helmet"], ["chest", "chest"], ["boots", "boots"]],
+}
+
+
+func new_item(template: String) -> Dictionary:
+	var t: Dictionary = item_templates.get(template, item_templates["custom"])
+	return {"id": "i%d%04d" % [Time.get_ticks_usec(), randi() % 10000], "template": template, "icon": template,
+		"name": t["name"], "text": t["text"], "qty": 1, "rarity": "common", "tint": null}
+
+
+func ensure_inventory(ch: Dictionary) -> void:
+	if not ch.has("equipment") or typeof(ch["equipment"]) != TYPE_DICTIONARY:
+		ch["equipment"] = {}
+	for k in SLOTS:
+		if not ch["equipment"].has(k):
+			ch["equipment"][k] = {}
+	if not ch.has("bag") or typeof(ch["bag"]) != TYPE_ARRAY:
+		ch["bag"] = []
+
+
+func give_class_kit(ch: Dictionary) -> void:
+	ensure_inventory(ch)
+	for e in CLASS_KITS.get(ch.get("class", ""), []):
+		var it := new_item(e[0])
+		if e.size() > 2:
+			it["qty"] = e[2]
+		if e[1] != "" and ch["equipment"][e[1]].is_empty():
+			ch["equipment"][e[1]] = it
+		else:
+			ch["bag"].append(it)
+
+
+## Yuva bu eşyayı kabul ediyor mu?
+func slot_accepts(slot: String, item: Dictionary) -> bool:
+	if item.is_empty():
+		return true
+	var t: Dictionary = item_templates.get(item.get("template", "custom"), {})
+	return str(t.get("slot", "")) == str(SLOTS[slot]["accepts"])
+
+
 # =============================================================== YARATIKLAR
 # Her kayıt: [ad, kategori, boyut, tehlike, can, zırh, hız(m), [güç,çev,day,zek,bil,kar], saldırılar, çizim]
 
@@ -669,8 +800,10 @@ func new_character(race_id := "human", class_id := "fighter", role := "pc") -> D
 		"alignment": "Tam Tarafsız", "disposition": "ally" if role == "pc" else "neutral",
 		"size": "medium", "player": "", "background": "", "personality": "", "notes": "", "gold": 0,
 		"attacks": "", "cr": "", "look": random_look(race_id, class_id),
+		"equipment": {}, "bag": [],
 	}
 	apply_standard_array(ch)
+	give_class_kit(ch)
 	return ch
 
 
@@ -744,14 +877,18 @@ func new_creature(species: String) -> Dictionary:
 			look[k] = _c2(art[k]) if (k in ["skin", "hair_color", "eye_color", "cloth", "accent", "bg", "mark_color", "horn_color"]) else art[k]
 	else:
 		look = art.duplicate(true)
-	return {
+	var ch := {
 		"id": "", "kind": "creature", "role": "creature", "name": d["name"], "species": species,
 		"race": art.get("race", ""), "class": art.get("class", ""), "level": 1, "xp": 0, "stats": stats,
 		"hp": d["hp"], "hp_max": d["hp"], "ac": d["ac"], "speed": d["speed"],
 		"alignment": "Tam Tarafsız", "disposition": "enemy", "size": d["size"], "player": "",
 		"background": "", "personality": "", "notes": "", "gold": 0, "attacks": d["attacks"], "cr": d["cr"],
-		"look": look,
+		"look": look, "equipment": {}, "bag": [],
 	}
+	ensure_inventory(ch)
+	if art.has("class"):
+		give_class_kit(ch)
+	return ch
 
 
 func describe(ch: Dictionary) -> String:

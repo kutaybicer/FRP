@@ -32,6 +32,16 @@ var dice_expr: LineEdit
 var dice_history: VBoxContainer
 var dice_overlay: DiceOverlay
 var _roll_log: Array = []
+var new_dialog: ConfirmationDialog
+var nd_start: OptionButton
+var nd_size: OptionButton
+var nd_cols: SpinBox
+var nd_rows: SpinBox
+var nd_scale: SpinBox
+
+const SIZE_PRESETS := [["Küçük", 120, 80], ["Orta", 200, 140], ["Büyük", 320, 220], ["Çok Büyük", 480, 320],
+		["Devasa", 640, 440], ["Dev Kıta", 900, 620], ["Özel", 0, 0]]
+const START_TYPES := ["Rastgele kıta (hazır arazi)", "Boş okyanus — anakarayı ben çizeceğim", "Boş kara (çayır)", "Boş parşömen (eskiz)"]
 var breadcrumb: HBoxContainer
 var map_tree: Tree
 var campaign_name_edit: LineEdit
@@ -77,6 +87,9 @@ func _ready() -> void:
 	view.map_changed.connect(_mark_dirty)
 	view.hover_changed.connect(func(t: String) -> void: status_label.text = t)
 	view.token_placed.connect(_on_token_placed)
+	view.placement_cancelled.connect(func() -> void:
+		_set_tool(T.SELECT)
+		_toast("Yerleştirme iptal edildi."))
 	_build_ui()
 
 	var timer := Timer.new()
@@ -106,12 +119,17 @@ func _process(delta: float) -> void:
 
 # =================================================================== kampanya / harita gezinme
 
-func _new_campaign() -> void:
+## start: 0 rastgele kıta, 1 boş okyanus, 2 boş kara, 3 boş parşömen
+func _new_campaign(start := 0, cols := 120, rows := 80, scale := 10.0) -> void:
 	campaign = Campaign.new()
 	view.characters = campaign.characters
 	editor.characters = campaign.characters
 	var world := campaign.create_map(Defs.Kind.WORLD, "Dünya Haritası")
-	MapGenerator.generate_terrain(world, randi(), true)
+	world.scale = scale
+	var fill: int = [Defs.T.SEA, Defs.T.SEA, Defs.T.GRASS, Defs.T.PARCHMENT][clampi(start, 0, 3)]
+	world.setup(cols, rows, fill)
+	if start == 0:
+		MapGenerator.generate_terrain(world, randi(), true)
 	save_path = ""
 	current = null
 	view._history.clear()
@@ -323,6 +341,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		KEY_DELETE: view.delete_selected()
 		KEY_BACKSPACE: _go_up()
 		KEY_ESCAPE:
+			if view.tool == T.TOKEN and view.token_char != "":
+				view.cancel_placement()
 			view.clear_selection()
 			view.set_tool(view.tool)
 		KEY_HOME: _fit()
@@ -331,7 +351,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			view.show_grid = not view.show_grid
 			view.redraw()
 		KEY_BRACKETLEFT, KEY_BRACKETRIGHT:
-			view.brush_radius = clampi(view.brush_radius + (1 if k == KEY_BRACKETRIGHT else -1), 1, 12)
+			view.brush_radius = clampi(view.brush_radius + (1 if k == KEY_BRACKETRIGHT else -1), 1, 40)
 			_rebuild_tool_options()
 			view.redraw()
 		_:
@@ -388,9 +408,9 @@ func _build_ui() -> void:
 	top.add_child(bar)
 	bar.add_child(_btn("Yeni", func() -> void:
 		if dirty:
-			_ask("Kaydedilmemiş değişiklikler var. Yeni kampanya başlatılsın mı?", _new_campaign)
+			_ask("Kaydedilmemiş değişiklikler var. Yeni kampanya başlatılsın mı?", _open_new_dialog)
 		else:
-			_new_campaign()))
+			_open_new_dialog(), "Yeni kampanya: boş harita, rastgele kıta, boyut seçimi"))
 	bar.add_child(_btn("Aç", func() -> void: _show_file_dialog("open", FileDialog.FILE_MODE_OPEN_FILE, "*.frp ; FRP Kampanyası"), "Ctrl+O"))
 	bar.add_child(_btn("Kaydet", _save, "Ctrl+S"))
 	bar.add_child(_btn("Farklı Kaydet", func() -> void: _show_file_dialog("save", FileDialog.FILE_MODE_SAVE_FILE, "*.frp ; FRP Kampanyası", campaign.name + ".frp")))
@@ -525,6 +545,8 @@ func _build_ui() -> void:
 	confirm.title = "Emin misin?"
 	ui.add_child(confirm)
 
+	_build_new_dialog()
+
 	dice_overlay = DiceOverlay.new()
 	ui.add_child(dice_overlay)
 	dice_overlay.visible = false
@@ -629,7 +651,7 @@ func _brush_slider(box: Control) -> void:
 	box.add_child(lbl)
 	var sl := HSlider.new()
 	sl.min_value = 1
-	sl.max_value = 12
+	sl.max_value = 40
 	sl.value = view.brush_radius
 	sl.focus_mode = Control.FOCUS_NONE
 	sl.value_changed.connect(func(v: float) -> void:
@@ -894,16 +916,28 @@ func _inspect_map() -> void:
 	box.add_child(_small("Boyut (hücre): genişlik × yükseklik"))
 	var zrow := HBoxContainer.new()
 	box.add_child(zrow)
-	var cs := _spin(10, 400, 1, current.cols, func(_v: float) -> void: pass)
-	var rs := _spin(10, 400, 1, current.rows, func(_v: float) -> void: pass)
+	var cs := _spin(10, 1000, 1, current.cols, func(_v: float) -> void: pass)
+	var rs := _spin(10, 1000, 1, current.rows, func(_v: float) -> void: pass)
 	zrow.add_child(cs)
 	zrow.add_child(rs)
+	var center_chk := _check("Ortadan genişlet / küçült", true)
+	center_chk.tooltip_text = "Açık: harita her yönden eşit büyür. Kapalı: sağa ve aşağıya doğru büyür."
 	zrow.add_child(_btn("Uygula", func() -> void:
+		var nc := int(cs.value)
+		var nr := int(rs.value)
+		var ox := (nc - current.cols) / 2 if center_chk.button_pressed else 0
+		var oy := (nr - current.rows) / 2 if center_chk.button_pressed else 0
 		view.record()
-		current.resize(int(cs.value), int(rs.value), Defs.KIND_DEFAULTS[current.kind]["fill"])
+		current.resize(nc, nr, Defs.KIND_DEFAULTS[current.kind]["fill"], ox, oy)
 		view.rebuild_all()
 		_fit()
-		_refresh_breadcrumb()))
+		_refresh_breadcrumb()
+		_refresh_inspector()))
+	box.add_child(center_chk)
+	var lim := _small("En fazla 1000×1000 hücre. Çok büyük haritalarda rastgele üretim birkaç saniye sürebilir.")
+	lim.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	lim.custom_minimum_size.x = 260
+	box.add_child(lim)
 
 	var fog := CheckBox.new()
 	fog.text = "Savaş sisi"
@@ -1221,6 +1255,23 @@ func _build_characters_tab() -> void:
 		_start_place(id))
 
 
+## Jetonları kaldırır: önce açık haritadan; burada yoksa bulunduğu tüm haritalardan
+func _remove_from_map(id: String) -> void:
+	if view.remove_tokens_of(id):
+		_toast("Jeton bu haritadan kaldırıldı.")
+	else:
+		view.record()
+		for m in campaign.locations_of(id):
+			for i in range(m.tokens.size() - 1, -1, -1):
+				if m.tokens[i].get("char", "") == id:
+					m.tokens.remove_at(i)
+		_toast("Jeton bulunduğu haritadan kaldırıldı.")
+	if view.token_char == id:
+		view.cancel_placement()
+	_mark_dirty()
+	_refresh_characters()
+
+
 func _new_character(role: String) -> void:
 	var races := Lore.races.keys()
 	var pcs := []
@@ -1329,7 +1380,14 @@ func _do_refresh_characters() -> void:
 			for m in locs:
 				names.append(m.name)
 			v.add_child(_small("Konum: " + ", ".join(names)))
-		row.add_child(_btn("Koy", func() -> void: _start_place(cid), "Haritaya tıklayarak yerleştir"))
+		var bcol := VBoxContainer.new()
+		bcol.add_theme_constant_override("separation", 2)
+		row.add_child(bcol)
+		bcol.add_child(_btn("Koy", func() -> void: _start_place(cid), "Haritaya tıklayarak yerleştir (sağ tık / Esc: iptal)"))
+		if not locs.is_empty():
+			var rb := _btn("Kaldır", func() -> void: _remove_from_map(cid), "Bu karakterin jetonunu haritadan kaldır (karakter silinmez)")
+			rb.add_theme_color_override("font_color", Color("ff8a7a"))
+			bcol.add_child(rb)
 	if shown == 0:
 		_hint(char_list, "Henüz karakter yok. Yukarıdaki düğmelerle kahraman, NPC ya da bestiyerden yaratık ekle.")
 
@@ -1457,6 +1515,83 @@ func _inspect_token(tok: Dictionary) -> void:
 	var del := _btn("Jetonu Haritadan Kaldır (Del)", func() -> void: view.delete_selected())
 	del.add_theme_color_override("font_color", Color("ff8a7a"))
 	box.add_child(del)
+
+
+# =================================================================== yeni kampanya penceresi
+
+func _build_new_dialog() -> void:
+	new_dialog = ConfirmationDialog.new()
+	new_dialog.title = "Yeni Kampanya"
+	new_dialog.ok_button_text = "Oluştur"
+	new_dialog.cancel_button_text = "Vazgeç"
+	ui.add_child(new_dialog)
+	var v := VBoxContainer.new()
+	v.custom_minimum_size = Vector2(460, 0)
+	new_dialog.add_child(v)
+	var h_17 := _header("NASIL BAŞLAYALIM?")
+	h_17.autowrap_mode = TextServer.AUTOWRAP_OFF
+	v.add_child(h_17)
+	nd_start = OptionButton.new()
+	for t in START_TYPES:
+		nd_start.add_item(t)
+	nd_start.selected = 1
+	v.add_child(nd_start)
+	var tip := _small("Boş okyanus seçersen: sol panelde Arazi (B) aracıyla Çayır, Orman, Dağlık... seçip anakarayı fırçayla çiz. Büyük alanlar için fırçayı büyüt ( [ ve ] tuşları ) ya da Kova Dolgu (G) kullan.")
+	tip.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	tip.custom_minimum_size = Vector2(440, 64)
+	v.add_child(tip)
+	v.add_child(HSeparator.new())
+	var h_13 := _header("HARİTA BOYUTU")
+	h_13.autowrap_mode = TextServer.AUTOWRAP_OFF
+	v.add_child(h_13)
+	nd_size = OptionButton.new()
+	for p in SIZE_PRESETS:
+		nd_size.add_item(p[0] if p[1] == 0 else "%s  (%d × %d hücre)" % [p[0], p[1], p[2]])
+	nd_size.selected = 2
+	v.add_child(nd_size)
+	var row := HBoxContainer.new()
+	v.add_child(row)
+	row.add_child(_small("Genişlik"))
+	nd_cols = _spin(40, 1000, 10, 320, func(_v: float) -> void: nd_size.selected = SIZE_PRESETS.size() - 1)
+	row.add_child(nd_cols)
+	row.add_child(_small("Yükseklik"))
+	nd_rows = _spin(30, 1000, 10, 220, func(_v: float) -> void: nd_size.selected = SIZE_PRESETS.size() - 1)
+	row.add_child(nd_rows)
+	nd_size.item_selected.connect(func(i: int) -> void:
+		if SIZE_PRESETS[i][1] > 0:
+			nd_cols.set_value_no_signal(SIZE_PRESETS[i][1])
+			nd_rows.set_value_no_signal(SIZE_PRESETS[i][2]))
+	var srow := HBoxContainer.new()
+	v.add_child(srow)
+	srow.add_child(_small("Ölçek: 1 hücre ="))
+	nd_scale = _spin(0.5, 1000, 0.5, 10, func(_v: float) -> void: pass)
+	nd_scale.suffix = "km"
+	nd_scale.custom_minimum_size.x = 120
+	nd_cols.custom_minimum_size.x = 100
+	nd_rows.custom_minimum_size.x = 100
+	srow.add_child(nd_scale)
+	var info := _small("")
+	v.add_child(info)
+	var upd := func(_x = null) -> void:
+		info.text = "Harita genişliği: %d km × %d km" % [int(nd_cols.value * nd_scale.value), int(nd_rows.value * nd_scale.value)]
+	nd_cols.value_changed.connect(upd)
+	nd_rows.value_changed.connect(upd)
+	nd_scale.value_changed.connect(upd)
+	nd_size.item_selected.connect(upd)
+	upd.call()
+	new_dialog.confirmed.connect(func() -> void:
+		_toast("Harita oluşturuluyor...")
+		_new_campaign(nd_start.selected, int(nd_cols.value), int(nd_rows.value), nd_scale.value)
+		if nd_start.selected == 1:
+			view.brush_terrain = Defs.T.GRASS
+			view.brush_radius = clampi(int(nd_cols.value) / 60, 3, 12)
+			_set_tool(T.TERRAIN)
+			_toast("Boş okyanus hazır. Arazi fırçasıyla anakaranı çiz!"))
+
+
+func _open_new_dialog() -> void:
+	new_dialog.size = Vector2i(540, 330)
+	new_dialog.popup_centered(Vector2i(540, 330))
 
 
 # =================================================================== zarlar

@@ -2,7 +2,7 @@ class_name CameraRig
 extends Camera2D
 ## Sağ/orta tuşla sürükle = kaydır, tekerlek = yakınlaştır (imlecin olduğu yere).
 
-const MIN_ZOOM := 0.1
+const MIN_ZOOM := 0.03
 const MAX_ZOOM := 8.0
 
 var _panning := false

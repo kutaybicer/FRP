@@ -25,12 +25,19 @@ FRP kampanyaları için iç içe harita tasarlama aracı. Dünya haritası çiz,
 | `scripts/inventory_panel.gd`, `item_slot.gd`, `item_painter.gd` | Envanter, sürükle-bırak yuvalar, eşya ikonları |
 | `scripts/dice.gd`, `dice_overlay.gd`, `die_button.gd` | Zar ifadeleri, zar tepsisi ve atma animasyonu |
 
+## Sıfırdan harita / büyük haritalar
+- **Yeni** düğmesi bir pencere açar. Başlangıç tipini seç: *Rastgele kıta*, *Boş okyanus (anakarayı ben çizeceğim)*, *Boş kara* ya da *Boş parşömen*. Boyutu da buradan seçersin: Küçük 120×80'den Dev Kıta 900×620'ye kadar hazır boyutlar var, istersen en fazla 1000×1000 hücrelik özel boyut girebilirsin. Ölçek de ayarlanabilir (1 hücre = ? km).
+- Boş okyanusla başlayınca Arazi aracı (B) Çayır seçili açılır; anakarayı fırçayla çizersin. Fırça boyutu 40'a kadar çıkar ( `[` ve `]` tuşları). Kova Dolgu (G) kapalı alanları tek tıkla doldurur.
+- Var olan haritayı sıfırlamak için: sağ panel → **Haritayı Tamamen Temizle** (boş deniz) veya **Tümünü Seçili Araziyle Doldur**.
+- Haritayı sonradan büyütmek için: sağ panel → Boyut → **Uygula**. "Ortadan genişlet" seçiliyse harita her yönden eşit büyür ve semboller, yollar ve jetonlar yerinde kalır.
+
 ## Karakterler ve yaratıklar
 - **Kahramanlar ve NPC'ler** 26 ırk ve 17 sınıftan oluşturulabilir. İnsan, Yüksek/Orman/Kara Elf, Yarı-Elf, Cüce, Buçukluk, Gnom, Yarı-Ork, Ork, Goblin, Hobgoblin, Kobold, Şeytansoyu, Ejderdoğan, Göksoylu, Dağ Devi Soyu, Kedi/Kertenkele/Kuş/Tavşan Halkı, Minotor, Sentor, Orman Devi Soyu, Elementsoyu ve Deniz Halkı var. Savaşçı, Barbar, Paladin, Korucu, Hırsız, Büyücü, Sihirbaz, Ahitli, Rahip, Druid, Ozan, Keşiş ve Mucit sınıflarına ek olarak Köylü, Tüccar, Soylu ve Muhafız NPC sınıfları da var.
 - **Bestiyer**: 150'den fazla hayvan, kuş, deniz canlısı, böcek, ejderha, fantastik yaratık, canavar, ölümsüz, elemental ve insansı düşman. Her birinin can, zırh sınıfı, tehlike derecesi ve saldırıları hazır gelir.
 - **Karakter kartı**: kimlik, görünüm (kafa, kulak, saç, sakal, boynuz, işaret, başlık, kıyafet, silah, kanat ve tüm renkler), yetenek puanları (4d6 zar ya da standart dizi, ırk bonusları, değiştiriciler), can, zırh sınıfı, hız, XP, altın ve notlar.
 - **Portreler** tamamen kodla çizilir. Shader ile boya dokusu, ışık ve gölge eklenir. Portreler bir kez çizilip önbelleğe alındığı için harita jetonları hızlıdır ve her yakınlaştırmada pürüzsüz görünür.
 - **Jetonlar** (Karakter aracı, C): Kahramanlar ve NPC'ler aynı anda tek bir haritada bulunur, yeniden yerleştirince taşınırlar. Yaratıklardan istediğin kadar koyabilirsin (Kurt 1, Kurt 2...); her jetonun kendi canı vardır. Jeton halkasının rengi tarafını gösterir (dost, tarafsız, düşman). Can çubuğu ve ölü işareti de var. Kahramanlar ilerledikçe savaş sisi açılır.
+- **Koy**'a basınca karakter fareye yapışır; sol tık yerleştirir, **sağ tık veya Esc iptal eder**. Listedeki **Kaldır** düğmesi jetonu haritadan kaldırır (karakter silinmez).
 - Jetona tıklayınca sağ panelde hasar/iyileştirme düğmeleri ve hızlı istatistikler görünür. **Karakterler** sekmesi bütün kadroyu ve her karakterin hangi haritada olduğunu listeler.
 
 ## Envanter

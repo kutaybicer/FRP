@@ -75,7 +75,8 @@ func free_region_id() -> int:
 	return -1
 
 
-func resize(new_cols: int, new_rows: int, fill: int) -> void:
+## ox, oy: eski içeriğin yeni haritadaki kayması (hücre). Ortadan genişletmek için kullanılır.
+func resize(new_cols: int, new_rows: int, fill: int, ox := 0, oy := 0) -> void:
 	var t := PackedByteArray()
 	var rg := PackedByteArray()
 	var f := PackedByteArray()
@@ -86,13 +87,34 @@ func resize(new_cols: int, new_rows: int, fill: int) -> void:
 	rg.fill(0)
 	f.resize(n)
 	f.fill(0)
-	for r in mini(rows, new_rows):
-		for c in mini(cols, new_cols):
+	for r in rows:
+		var nr := r + oy
+		if nr < 0 or nr >= new_rows:
+			continue
+		for c in cols:
+			var nc := c + ox
+			if nc < 0 or nc >= new_cols:
+				continue
 			var o := r * cols + c
-			var d := r * new_cols + c
+			var d := nr * new_cols + nc
 			t[d] = terrain[o]
 			rg[d] = region[o]
 			f[d] = fog[o]
+	if ox != 0 or oy != 0:
+		var off := Vector2(ox, oy) * Defs.CELL
+		for sym in symbols:
+			sym["pos"] += off
+		for l in labels:
+			l["pos"] += off
+		for tk in tokens:
+			tk["pos"] += off
+		for p in paths:
+			var pts: PackedVector2Array = p["points"]
+			for i in pts.size():
+				pts[i] += off
+			p["points"] = pts
+		if party_pos.x >= 0:
+			party_pos += off
 	cols = new_cols
 	rows = new_rows
 	terrain = t

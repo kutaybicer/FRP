@@ -59,7 +59,8 @@ static func _biome(e: float, m: float) -> int:
 
 static func _rivers(map: MapData, heights: PackedFloat32Array, rng: RandomNumberGenerator) -> void:
 	var sources: Array = []
-	for i in 400:
+	var max_rivers := clampi(map.cols * map.rows / 1500, 6, 40)
+	for i in 400 + max_rivers * 60:
 		var c := rng.randi_range(2, map.cols - 3)
 		var r := rng.randi_range(2, map.rows - 3)
 		if heights[r * map.cols + c] > 0.64 and heights[r * map.cols + c] < 0.8:
@@ -70,7 +71,7 @@ static func _rivers(map: MapData, heights: PackedFloat32Array, rng: RandomNumber
 					break
 			if ok:
 				sources.append(Vector2(c, r))
-		if sources.size() >= 6:
+		if sources.size() >= max_rivers:
 			break
 	var dirs := [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1),
 			Vector2i(1, 1), Vector2i(-1, 1), Vector2i(1, -1), Vector2i(-1, -1)]
@@ -79,7 +80,7 @@ static func _rivers(map: MapData, heights: PackedFloat32Array, rng: RandomNumber
 		var pts := PackedVector2Array()
 		var visited := {}
 		var reached_water := false
-		for step in 400:
+		for step in 400 + maxi(map.cols, map.rows):
 			pts.append((Vector2(cur) + Vector2(0.5, 0.5)) * Defs.CELL)
 			visited[cur] = true
 			if Defs.water_lookup[map.terrain[map.idx(cur.x, cur.y)]] == 1:
@@ -112,8 +113,8 @@ static func _rivers(map: MapData, heights: PackedFloat32Array, rng: RandomNumber
 
 
 static func _nature_symbols(map: MapData, rng: RandomNumberGenerator) -> void:
-	var placed: Array = []
-	for i in 2500:
+	var placed := {}
+	for i in maxi(2500, map.cols * map.rows / 4):
 		var c := rng.randi_range(1, map.cols - 2)
 		var r := rng.randi_range(1, map.rows - 2)
 		var t := map.terrain[map.idx(c, r)]
@@ -131,13 +132,18 @@ static func _nature_symbols(map: MapData, rng: RandomNumberGenerator) -> void:
 		if type == "":
 			continue
 		var pos := (Vector2(c, r) + Vector2(rng.randf(), rng.randf())) * Defs.CELL
+		# yakındaki semboller için ızgara kovası (büyük haritalarda hızlı)
+		var key := Vector2i(floori(pos.x / 64.0), floori(pos.y / 64.0))
 		var ok := true
-		for p in placed:
-			if p.distance_to(pos) < min_d:
-				ok = false
-				break
+		for dy in range(-1, 2):
+			for dx in range(-1, 2):
+				for p in placed.get(key + Vector2i(dx, dy), []):
+					if p.distance_to(pos) < min_d:
+						ok = false
 		if ok:
-			placed.append(pos)
+			if not placed.has(key):
+				placed[key] = []
+			placed[key].append(pos)
 			var sz := rng.randf_range(1.1, 1.5) if type == "mountain" else 1.1
 			map.symbols.append({"type": type, "pos": pos, "name": "", "notes": "", "size": sz, "link": ""})
 	# üstteki semboller önde dursun diye y'ye göre sırala

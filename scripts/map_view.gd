@@ -8,6 +8,7 @@ signal request_enter(symbol: Dictionary)
 signal map_changed
 signal hover_changed(text: String)
 signal token_placed(char_id: String)
+signal placement_cancelled
 
 enum Tool { SELECT, TERRAIN, FILL, REGION, PATH, SYMBOL, LABEL, FOG, MEASURE, ERASER, PARTY, TOKEN }
 
@@ -40,6 +41,8 @@ var hd := true:
 	set(v):
 		hd = v
 		_apply_shader_params()
+		if map and not v:
+			_recompute_coast()
 		redraw()
 ## Parşömen: eski harita görünümü (sepya, kağıt dokusu, kenar karartma)
 var parchment := false:
@@ -80,6 +83,10 @@ var _region_colors := {}  # rid -> Color
 
 var _history := {}        # map_id -> {"undo": [], "redo": []}
 var _stroke := false
+var _regions_dirty := false
+var _work := PackedByteArray()
+var _mask_data := PackedByteArray()
+var _coast_dirty := false
 var _last_cell := Vector2i(-9999, -9999)
 var _path_pts := PackedVector2Array()
 var _drag_obj := false
@@ -118,6 +125,9 @@ func _ready() -> void:
 	_tokens.draw.connect(_draw_tokens)
 	Portraits.texture_ready.connect(func(_k: String) -> void: _tokens.queue_redraw())
 	_fog_sprite = _make_sprite(TEXTURE_FILTER_LINEAR)
+	var fog_mat := ShaderMaterial.new()
+	fog_mat.shader = preload("res://shaders/fog.gdshader")
+	_fog_sprite.material = fog_mat
 	_top = Node2D.new()
 	add_child(_top)
 	_top.draw.connect(_draw_top)
@@ -147,16 +157,20 @@ func set_map(m: MapData) -> void:
 func rebuild_all() -> void:
 	if map == null:
 		return
-	_terrain_img = Image.create(map.cols, map.rows, false, Image.FORMAT_R8)
-	_mask_img = Image.create(map.cols, map.rows, false, Image.FORMAT_R8)
-	_region_img = Image.create(map.cols, map.rows, false, Image.FORMAT_R8)
-	_fog_img = Image.create(map.cols, map.rows, false, Image.FORMAT_RGBA8)
+	# Büyük haritalar için hızlı yol: hücre dizileri doğrudan R8 dokuya kopyalanır
+	var n := map.cols * map.rows
+	_terrain_img = Image.create_from_data(map.cols, map.rows, false, Image.FORMAT_R8, map.terrain)
+	var mask := PackedByteArray()
+	mask.resize(n)
+	var wl := Defs.water_lookup
+	var t := map.terrain
+	for i in n:
+		mask[i] = 255 * wl[t[i]]
+	_mask_img = Image.create_from_data(map.cols, map.rows, false, Image.FORMAT_R8, mask)
+	_mask_data = mask
 	_rebuild_region_colors()
-	for r in map.rows:
-		for c in map.cols:
-			_set_terrain_px(c, r)
-			_set_region_px(c, r)
-			_set_fog_px(c, r)
+	_region_img = Image.create_from_data(map.cols, map.rows, false, Image.FORMAT_R8, map.region)
+	_fog_img = Image.create_from_data(map.cols, map.rows, false, Image.FORMAT_R8, map.fog)
 	_terrain_tex = ImageTexture.create_from_image(_terrain_img)
 	_mask_tex = ImageTexture.create_from_image(_mask_img)
 	_region_tex = ImageTexture.create_from_image(_region_img)
@@ -164,7 +178,8 @@ func rebuild_all() -> void:
 	_terrain_sprite.texture = _terrain_tex
 	_region_sprite.texture = _region_tex
 	_fog_sprite.texture = _fog_tex
-	_recompute_coast()
+	if not hd:
+		_recompute_coast()
 	_recompute_borders()
 	_apply_shader_params()
 	update_fog_visibility()
@@ -193,9 +208,7 @@ func _apply_shader_params() -> void:
 
 func rebuild_regions() -> void:
 	_rebuild_region_colors()
-	for r in map.rows:
-		for c in map.cols:
-			_set_region_px(c, r)
+	_region_img.set_data(map.cols, map.rows, false, Image.FORMAT_R8, map.region)
 	_region_tex.update(_region_img)
 	_region_pal_tex.update(_region_pal_img)
 	_recompute_borders()
@@ -238,8 +251,7 @@ func _set_region_px(c: int, r: int) -> void:
 
 
 func _set_fog_px(c: int, r: int) -> void:
-	var open := map.fog[map.idx(c, r)] == 1
-	_fog_img.set_pixel(c, r, Color(0, 0, 0, 0) if open else Color(0.07, 0.06, 0.05, 1.0))
+	_fog_img.set_pixel(c, r, Color8(map.fog[map.idx(c, r)], 0, 0))
 
 
 func _recompute_coast() -> void:
@@ -284,7 +296,9 @@ func _hist() -> Dictionary:
 func record() -> void:
 	var h := _hist()
 	h["undo"].append(map.to_dict())
-	if h["undo"].size() > HISTORY_LIMIT:
+	# büyük haritalarda bellek dolmasın diye geçmiş kısalır
+	var limit := clampi(int(12000000.0 / maxf(1.0, map.cols * map.rows * 3.0)), 8, HISTORY_LIMIT)
+	while h["undo"].size() > limit:
 		h["undo"].pop_front()
 	h["redo"].clear()
 	map_changed.emit()
@@ -371,6 +385,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion:
 		_mouse = get_global_mouse_position()
 		_on_motion(event)
+	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
+		if tool == Tool.TOKEN and token_char != "":
+			cancel_placement()
 	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		_mouse = get_global_mouse_position()
 		get_viewport().gui_release_focus()
@@ -446,6 +463,29 @@ func _on_press(event: InputEventMouseButton) -> void:
 				place_token(token_char, p)
 
 
+## Fareye yapışan karakteri bırak (sağ tık / Esc)
+func cancel_placement() -> void:
+	token_char = ""
+	_top.queue_redraw()
+	placement_cancelled.emit()
+
+
+## Karakterin bu haritadaki tüm jetonlarını kaldırır
+func remove_tokens_of(char_id: String) -> bool:
+	var found := false
+	for i in range(map.tokens.size() - 1, -1, -1):
+		if map.tokens[i].get("char", "") == char_id:
+			if not found:
+				record()
+			found = true
+			map.tokens.remove_at(i)
+	if found:
+		if selected_kind == "token" and selected.get("char", "") == char_id:
+			clear_selection()
+		redraw()
+	return found
+
+
 ## Karakteri haritaya koyar. Karakterler tek jeton (taşınır), yaratıklar her tıkta yeni jeton.
 func place_token(char_id: String, p: Vector2) -> void:
 	var ch: Dictionary = characters[char_id]
@@ -487,6 +527,13 @@ func _on_release() -> void:
 	if _stroke and tool == Tool.PATH:
 		_finish_path()
 	_stroke = false
+	if _regions_dirty:
+		_regions_dirty = false
+		_recompute_borders()
+	if _coast_dirty:
+		_coast_dirty = false
+		if not hd:
+			_recompute_coast()
 	_drag_obj = false
 	_left_pan = false
 	if _drag_party:
@@ -712,50 +759,79 @@ func _paint_to(p: Vector2) -> void:
 	var c := _cell_at(p)
 	if c == _last_cell:
 		return
+	# boyanan diziyi haritadan ayır: tek sahip olunca yerinde yazılır (büyük haritada çok hızlı)
+	match tool:
+		Tool.TERRAIN:
+			_work = map.terrain
+			map.terrain = PackedByteArray()
+		Tool.REGION:
+			_work = map.region
+			map.region = PackedByteArray()
+		Tool.FOG:
+			_work = map.fog
+			map.fog = PackedByteArray()
+		_:
+			return
 	if _last_cell.x == -9999:
 		_stamp(c)
 	else:
-		var steps := maxi(absi(c.x - _last_cell.x), absi(c.y - _last_cell.y))
+		var dist := maxi(absi(c.x - _last_cell.x), absi(c.y - _last_cell.y))
+		var spacing := maxi(1, brush_radius / 3)
+		var steps := maxi(1, ceili(float(dist) / spacing))
 		for i in range(1, steps + 1):
 			var q := Vector2(_last_cell).lerp(Vector2(c), float(i) / steps)
 			_stamp(Vector2i(roundi(q.x), roundi(q.y)))
 	_last_cell = c
 	match tool:
 		Tool.TERRAIN:
+			map.terrain = _work
+			_terrain_img.set_data(map.cols, map.rows, false, Image.FORMAT_R8, map.terrain)
+			_mask_img.set_data(map.cols, map.rows, false, Image.FORMAT_R8, _mask_data)
 			_terrain_tex.update(_terrain_img)
 			_mask_tex.update(_mask_img)
-			_recompute_coast()
+			_coast_dirty = true
 		Tool.REGION:
+			map.region = _work
+			_region_img.set_data(map.cols, map.rows, false, Image.FORMAT_R8, map.region)
 			_region_tex.update(_region_img)
-			_recompute_borders()
+			_regions_dirty = true
 		Tool.FOG:
+			map.fog = _work
+			_fog_img.set_data(map.cols, map.rows, false, Image.FORMAT_R8, map.fog)
 			_fog_tex.update(_fog_img)
+	_work = PackedByteArray()
 	_objects.queue_redraw()
 
 
+## Fırça izi: satır satır yazar. Diziler "_work" üzerinden yerinde değiştirilir (kopyalama yok).
 func _stamp(center: Vector2i) -> void:
 	var r := brush_radius - 1
+	var cols := map.cols
+	var mask_v := 255 * Defs.water_lookup[brush_terrain]
+	var fog_v := 1 if fog_reveal else 0
+	var wl := Defs.water_lookup
 	for dy in range(-r, r + 1):
-		for dx in range(-r, r + 1):
-			if dx * dx + dy * dy > r * r + r:
-				continue
-			var c := center.x + dx
-			var rr := center.y + dy
-			if not map.in_bounds(c, rr):
-				continue
-			var i := map.idx(c, rr)
-			match tool:
-				Tool.TERRAIN:
-					map.terrain[i] = brush_terrain
-					_set_terrain_px(c, rr)
-				Tool.REGION:
-					if region_land_only and brush_region != 0 and Defs.water_lookup[map.terrain[i]] == 1:
+		var y := center.y + dy
+		if y < 0 or y >= map.rows:
+			continue
+		var half := int(sqrt(float(r * r + r - dy * dy)))
+		var x0 := maxi(0, center.x - half)
+		var x1 := mini(cols - 1, center.x + half)
+		var base := y * cols
+		match tool:
+			Tool.TERRAIN:
+				for x in range(x0, x1 + 1):
+					_work[base + x] = brush_terrain
+					_mask_data[base + x] = mask_v
+			Tool.REGION:
+				var land_only := region_land_only and brush_region != 0
+				for x in range(x0, x1 + 1):
+					if land_only and wl[map.terrain[base + x]] == 1:
 						continue
-					map.region[i] = brush_region
-					_set_region_px(c, rr)
-				Tool.FOG:
-					map.fog[i] = 1 if fog_reveal else 0
-					_set_fog_px(c, rr)
+					_work[base + x] = brush_region
+			Tool.FOG:
+				for x in range(x0, x1 + 1):
+					_work[base + x] = fog_v
 
 
 func _flood(start: Vector2i, layer: PackedByteArray, value: int, land_only: bool) -> PackedByteArray:

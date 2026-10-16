@@ -6,12 +6,13 @@ const CELL := 16            # bir hücrenin piksel boyu
 const SYMBOL_BASE := 18.0   # sembol yarıçapı (boyut çarpanı 1.0 iken)
 const TOKEN_BASE := 15.0    # orta boy karakter jetonunun yarıçapı
 
-enum Kind { WORLD, REGION, CITY, DUNGEON, BUILDING }
-const KIND_NAMES := ["Dünya", "Bölge", "Şehir", "Zindan", "Yapı / İç Mekan"]
+enum Kind { WORLD, REGION, CITY, DUNGEON, BUILDING, SITE }
+const KIND_NAMES := ["Dünya", "Bölge", "Şehir", "Zindan", "Yapı / İç Mekan", "Yerel Alan"]
 
 # Arazi indeksleri (kayıt dosyaları bu sıraya bağlıdır, sadece sona ekleyin)
 enum T { DEEP, SEA, SHALLOW, SAND, GRASS, PLAINS, FOREST, SWAMP, DESERT, HILLS,
-		MOUNTAIN, SNOW, LAVA, DIRT, COBBLE, STONE_FLOOR, WOOD_FLOOR, WALL, VOID, PARCHMENT }
+		MOUNTAIN, SNOW, LAVA, DIRT, COBBLE, STONE_FLOOR, WOOD_FLOOR, WALL, VOID, PARCHMENT,
+		ROOF_RED, ROOF_SLATE, FIELD }
 
 var terrains: Array = [
 	{"name": "Derin Deniz", "color": Color("1b3a6b"), "water": true},
@@ -34,11 +35,15 @@ var terrains: Array = [
 	{"name": "Duvar", "color": Color("3a3633"), "water": false},
 	{"name": "Boşluk / Kaya", "color": Color("161412"), "water": false},
 	{"name": "Parşömen", "color": Color("e8dcb8"), "water": false},
+	{"name": "Çatı (Kiremit)", "color": Color("a9503a"), "water": false},
+	{"name": "Çatı (Arduvaz)", "color": Color("5b6470"), "water": false},
+	{"name": "Tarla", "color": Color("b9a659"), "water": false},
 ]
 var water_lookup := PackedByteArray()
 # Shader doku stili (terrain.gdshader içindeki land_detail ile eşleşir)
-# 0 düz, 1 orman, 2 dağ/tepe, 3 kum, 4 kar, 5 taş döşeme, 6 ahşap, 7 duvar, 8 kaya boşluk, 9 bataklık, 10 lav, 11 çayır
-var terrain_styles: Array = [0, 0, 0, 3, 11, 11, 1, 9, 3, 2, 2, 4, 10, 0, 5, 5, 6, 7, 8, 0]
+# 0 düz, 1 orman, 2 dağ/tepe, 3 kum, 4 kar, 5 taş döşeme, 6 ahşap, 7 duvar, 8 kaya boşluk, 9 bataklık, 10 lav, 11 çayır,
+# 12 çatı kiremidi, 13 tarla sıraları
+var terrain_styles: Array = [0, 0, 0, 3, 11, 11, 1, 9, 3, 2, 2, 4, 10, 0, 5, 5, 6, 7, 8, 0, 12, 12, 13]
 var terrain_palette: ImageTexture
 
 var font_title: Font   # bölge isimleri, harita yazıları (Cinzel)
@@ -50,10 +55,20 @@ const KIND_DEFAULTS := {
 	Kind.CITY: {"cols": 80, "rows": 60, "fill": T.GRASS, "scale": 5.0, "unit": "m"},
 	Kind.DUNGEON: {"cols": 60, "rows": 45, "fill": T.VOID, "scale": 1.5, "unit": "m"},
 	Kind.BUILDING: {"cols": 40, "rows": 30, "fill": T.VOID, "scale": 1.5, "unit": "m"},
+	Kind.SITE: {"cols": 100, "rows": 70, "fill": T.GRASS, "scale": 5.0, "unit": "m"},
 }
 
+# Giriş kuralları: hangi haritada hangi sembolün içine girilebilir?
+# Dünya/Bölge: yerleşimler, yapılar, doğa alanları, zindanlar. Şehir: sadece binalar.
+# Bina, zindan ve yerel alan haritaları son katmandır (içlerinden başka yere girilmez).
+const SETTLEMENTS := ["capital", "city", "town", "village", "port"]
+const STRUCTURES := ["castle", "fort", "tower", "temple"]
+const CITY_BUILDINGS := ["house", "noble", "tavern", "inn", "shop", "blacksmith", "guard", "temple", "tower", "castle"]
+const WILDS := ["forest", "pine", "mountain", "hills", "volcano"]
+const UNDERGROUND := ["dungeon", "cave", "ruins"]
+
 # Semboller: child = tıklanınca açılacak alt haritanın türü (-1 = otomatik alt harita yok)
-var symbol_categories: Array = ["Yerleşim", "Doğa", "Özel Yerler", "Şehir", "Zindan / İç Mekan"]
+var symbol_categories: Array = ["Yerleşim", "Doğa", "Özel Yerler", "Şehir", "Zindan / İç Mekan", "Mobilya"]
 var symbols: Dictionary = {
 	"capital": {"name": "Başkent", "cat": "Yerleşim", "child": Kind.CITY},
 	"city": {"name": "Şehir", "cat": "Yerleşim", "child": Kind.CITY},
@@ -101,6 +116,21 @@ var symbols: Dictionary = {
 	"pillar": {"name": "Sütun", "cat": "Zindan / İç Mekan", "child": -1},
 	"npc": {"name": "NPC", "cat": "Zindan / İç Mekan", "child": -1},
 	"monster": {"name": "Canavar", "cat": "Zindan / İç Mekan", "child": -1},
+	"table": {"name": "Masa", "cat": "Mobilya", "child": -1},
+	"chair": {"name": "Sandalye", "cat": "Mobilya", "child": -1},
+	"bench": {"name": "Sıra / Bank", "cat": "Mobilya", "child": -1},
+	"bed": {"name": "Yatak", "cat": "Mobilya", "child": -1},
+	"barrel": {"name": "Fıçı", "cat": "Mobilya", "child": -1},
+	"crate": {"name": "Kasa", "cat": "Mobilya", "child": -1},
+	"counter": {"name": "Tezgâh", "cat": "Mobilya", "child": -1},
+	"fireplace": {"name": "Ocak / Şömine", "cat": "Mobilya", "child": -1},
+	"bookshelf": {"name": "Raf / Kitaplık", "cat": "Mobilya", "child": -1},
+	"rug": {"name": "Halı", "cat": "Mobilya", "child": -1},
+	"throne": {"name": "Taht", "cat": "Mobilya", "child": -1},
+	"banner": {"name": "Sancak", "cat": "Mobilya", "child": -1},
+	"cauldron": {"name": "Kazan", "cat": "Mobilya", "child": -1},
+	"weapon_rack": {"name": "Silah Rafı", "cat": "Mobilya", "child": -1},
+	"plant": {"name": "Saksı Bitki", "cat": "Mobilya", "child": -1},
 }
 
 var path_order: Array = ["river", "stream", "road", "trail", "wall", "border"]
@@ -153,8 +183,28 @@ func _load_font(path: String, weight: int) -> Font:
 	return v
 
 
-func is_enterable(type: String) -> bool:
-	return symbols.has(type) and int(symbols[type]["child"]) >= 0
+## Bu harita türündeyken bu sembolün içine girilirse açılacak harita türü (-1: girilemez)
+func enter_kind(type: String, map_kind: int) -> int:
+	match map_kind:
+		Kind.WORLD, Kind.REGION:
+			if type in SETTLEMENTS:
+				return Kind.CITY
+			if type in STRUCTURES:
+				return Kind.BUILDING
+			if type in WILDS:
+				return Kind.SITE
+			if type in UNDERGROUND:
+				return Kind.DUNGEON
+		Kind.CITY:
+			if type in CITY_BUILDINGS:
+				return Kind.BUILDING
+			if type in ["dungeon", "well"]:
+				return Kind.DUNGEON
+	return -1
+
+
+func is_enterable(type: String, map_kind := Kind.WORLD) -> bool:
+	return enter_kind(type, map_kind) >= 0
 
 
 func symbol_name(type: String) -> String:

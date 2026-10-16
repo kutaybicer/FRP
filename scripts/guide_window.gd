@@ -102,21 +102,40 @@ Bu uygulamayla oyun dünyanı çizebilir; şehirler, zindanlar ve iç içe harit
 • Sürükleyerek tüm çizgiyi taşıyabilirsin. [k]Delete[/k] siler."""],
 
 	["Semboller ve İç İçe Haritalar", """[h]Sembol aracı ([k]S[/k])[/h]
-• Sol panelden bir sembol seç (Yerleşim, Doğa, Özel Yerler, Şehir, Zindan / İç Mekan), haritaya tıkla.
+• Sol panelden bir sembol seç (Yerleşim, Doğa, Özel Yerler, Şehir, Zindan / İç Mekan, Mobilya), haritaya tıkla.
 • [g]Sembol boyutu[/g] kaydırıcısı yeni sembollerin büyüklüğünü belirler.
 • [g]Yerleşimlere rastgele isim ver[/g] işaretliyse yeni köy ve şehirler otomatik isim alır.
 • Koyduğun sembol seçili gelir: sağ panelde [b]ad[/b], [b]tip[/b], [b]boyut[/b] ve [b]notlar[/b] düzenlenir. [g]Zar[/g] düğmesi rastgele fantastik isim verir.
+• Bina içlerinde [g]Mobilya[/g] kategorisi en üstte gelir: masa, sandalye, yatak, fıçı, tezgâh, ocak, raf, halı, taht, sancak, kazan, silah rafı...
 
-[h]Bir yerin içine girmek (şehir, zindan, meyhane...)[/h]
+[h]Bir yerin içine girmek[/h]
 • Düzenleme modunda sembole [k]çift tıkla[/k]. Masa modunda tek tık yeterli.
-• O sembolün henüz haritası yoksa otomatik oluşturulur (şehirde sur, kapılar ve çarşı; zindanda giriş odası; binada duvarlı oda hazır gelir).
+• İçi daha önce oluşturulmuşsa doğrudan girersin.
+• İçi henüz yoksa harita kendiliğinden üretilmez: sembol seçilir ve [b]sağ panelde[/b] iki seçenek çıkar:
+   – [g]Kendim Çizeceğim (boş harita)[/g]: türüne uygun boş zemin açılır (binada duvarlı boş oda, ormanda orman zemini...), içini sen çizersin.
+   – [g]Otomatik Oluştur[/g]: türüne uygun, mantıklı bir iç harita hazırlanır.
 • Alt haritası olan sembollerin köşesinde küçük altın bir ok işareti görünür.
-• Sağ panelden: [g]Alt Harita Oluştur ve Gir[/g] (harita türünü seçerek), [g]Haritaya Gir[/g], [g]Bağlantıyı Kaldır[/g], ya da [g]var olan bir haritaya bağla[/g] (ör. iki kapı aynı zindana çıksın).
+
+[h]Neyin içine girilebilir? (katman kuralı)[/h]
+• [b]Dünya / Bölge haritasında:[/b] başkent, şehir, kasaba, köy, liman → [b]şehir haritası[/b]; kale, karakol, kule, tapınak → [b]yapı içi[/b]; orman, çam ormanı, dağ, tepeler, yanardağ → [b]yerel alan[/b]; zindan, mağara, harabe → [b]zindan[/b].
+• [b]Şehir haritasında:[/b] sadece binalar (ev, konak, meyhane, han, dükkan, demirci, muhafız, tapınak, kule, kale) → [b]bina içi[/b]; kuyu ve zindan → yeraltı.
+• [b]Bina içi, zindan ve yerel alan (orman, dağ...) son katmandır:[/b] içlerindeki sembollere girilmez. Ormanın içinde yeni bir orman, dağın içinde yeni bir dağ açılmaz.
+• Yani çok katmanlı giriş sadece yerleşimlerde: [b]Dünya → Şehir → Meyhane[/b].
+
+[h]Otomatik oluşturma ne üretir?[/h]
+• [b]Başkent / şehir / kasaba:[/b] ana caddeler ve yan sokaklar, kiremit ve arduvaz çatılı evler, çarşı meydanı, kuyu, heykel, surlar, 4 kapı ve kuleler; isimli meyhaneler, hanlar, dükkanlar, demirci, tapınak, konak ve muhafız karakolu. Başkentte saray bölgesi, dışarıda tarlalar ve ağaçlar.
+• [b]Köy:[/b] toprak yollar, dağınık evler, köy kuyusu, meyhane ve demirci, çevrede geniş tarlalar. [b]Liman:[/b] kıyı, iskeleler, deniz feneri.
+• [b]Meyhane:[/b] bar tezgâhı ve meyhaneci, fıçılar, masalar ve sandalyeler, şömine, kiler, mutfak, üst kata merdiven. [b]Han:[/b] numaralı konuk odaları, yemek salonu, hancı.
+• [b]Ev, dükkan, demirci, tapınak, konak, muhafız, kale, kule, karakol:[/b] her biri kendine özgü odalar ve eşyalar (ocak ve örs, sunak ve sıralar, taht salonu, koğuş ve hücreler...).
+• [b]Orman:[/b] açıklıklar, patika, dere, göl, köprü, avcı kampı, druid sunağı, kurt ini. [b]Dağ:[/b] karlı zirveler, geçit patikası, mağara ağzı, konaklama yeri. [b]Tepeler:[/b] dikili taşlar, çoban kampı. [b]Yanardağ:[/b] krater, lav akıntıları.
+• [b]Zindan:[/b] odalar, koridorlar, kapılar, tuzaklar, sandıklar, canavarlar, hazine. [b]Mağara:[/b] doğal tüneller ve yeraltı gölleri. [b]Harabe:[/b] yıkık duvarlar, kırık heykel, yeraltı girişi.
+• Beğenmezsen: o haritaya gir → sağ panel (boş yere tıkla) → [g]Yeniden Oluştur[/g]. [k]Ctrl+Z[/k] ile geri alınır.
+• Sağ panelden ayrıca [g]Bağlantıyı Kaldır[/g] ya da [g]var olan bir haritaya bağla[/g] (ör. iki kapı aynı zindana çıksın) seçenekleri var.
 
 [b]Geri dönmek[/b]
 • [k]Backspace[/k] veya konum çubuğundaki [g]< Üst Harita[/g].
 • Konum çubuğundaki herhangi bir isme tıklayarak oraya atlayabilirsin.
-• Sağ panel → [g]Harita Ağacı[/g]: tüm haritaların listesi; tıklayınca o haritaya gider. Buradan sembolsüz alt harita da eklenebilir.
+• Sağ panel → [g]Harita Ağacı[/g]: tüm haritaların listesi; tıklayınca o haritaya gider. Buradan sembolsüz (boş) alt harita da eklenebilir.
 
 [b]Harita silmek[/b]
 • Silmek istediğin haritaya gir → sağ panel → [g]Bu Haritayı Sil[/g] (alt haritalarıyla birlikte silinir)."""],

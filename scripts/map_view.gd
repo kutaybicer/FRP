@@ -207,7 +207,7 @@ func _apply_shader_params() -> void:
 	# Zindan ve binalarda duvarlar düz kalsın diye bükme kapalı
 	var warp := 1.0
 	match map.kind:
-		Defs.Kind.CITY: warp = 0.3
+		Defs.Kind.CITY: warp = 0.08
 		Defs.Kind.DUNGEON, Defs.Kind.BUILDING: warp = 0.0
 	for mat in [_terrain_mat, _region_mat]:
 		mat.set_shader_parameter("map_cells", Vector2(map.cols, map.rows))
@@ -682,7 +682,7 @@ func _describe_cell(c: Vector2i) -> String:
 
 
 func _can_enter(s: Dictionary) -> bool:
-	return str(s.get("link", "")) != "" or Defs.is_enterable(str(s["type"]))
+	return str(s.get("link", "")) != "" or Defs.enter_kind(str(s["type"]), map.kind) >= 0
 
 
 # ---------- seç / taşı
@@ -694,6 +694,7 @@ func _select_press(p: Vector2, double: bool) -> void:
 		_left_pan = true
 		return
 	if double and hit["kind"] == "symbol":
+		select(hit["obj"], "symbol")
 		_drag_obj = false
 		request_enter.emit(hit["obj"])
 		return

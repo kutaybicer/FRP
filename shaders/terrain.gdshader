@@ -67,6 +67,21 @@ vec3 land_detail(vec3 col, int style, vec2 cell) {
 	} else if (style == 10) { // lav: parlayan çatlaklar
 		float c = abs(fbm(cell * 1.4) - 0.5);
 		col = mix(vec3(1.0, 0.78, 0.25), col * 0.45, smoothstep(0.015, 0.07, c));
+	} else if (style == 12) { // çatı kiremidi: sıralı, kaydırmalı kiremitler
+		vec2 t = cell * vec2(2.2, 3.0);
+		t.x += floor(t.y) * 0.5;
+		vec2 f = fract(t);
+		float edge = smoothstep(0.0, 0.18, f.y) * (1.0 - smoothstep(0.82, 1.0, f.y));
+		float side = smoothstep(0.0, 0.08, f.x) * (1.0 - smoothstep(0.92, 1.0, f.x));
+		col *= 0.78 + 0.22 * edge * side + 0.08 * hash21(floor(t));
+		col *= 0.92 + 0.12 * (1.0 - f.y);
+	} else if (style == 13) { // tarla: parsel parsel ekin sıraları
+		vec2 plot = floor(cell / 7.0);
+		float h = hash21(plot);
+		float dir = h > 0.5 ? cell.x : cell.y;
+		float rows = 0.5 + 0.5 * sin(dir * 5.5);
+		vec3 crop = mix(vec3(0.62, 0.72, 0.32), vec3(0.85, 0.74, 0.38), hash21(plot + 7.0));
+		col = mix(col, crop, 0.55) * (0.85 + 0.2 * rows);
 	} else if (style == 11) { // çayır / ova
 		col *= 0.96 + 0.06 * vnoise(cell * 4.0);
 	}

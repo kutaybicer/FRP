@@ -1,6 +1,6 @@
 # FRP Harita Ustası (Godot 4.3+)
 
-FRP kampanyaları için iç içe harita tasarlama aracı. Dünya haritası çiz, krallıkları boya, şehir sembolü koy. Sembole tıklayınca o şehrin haritası açılır, oradan meyhaneye, meyhaneden mahzene girebilirsin.
+FRP kampanyaları için iç içe harita tasarlama aracı. Dünya haritası çiz, krallıkları boya, şehir sembolü koy. Sembole tıklayınca o şehrin haritası açılır, oradan meyhaneye girebilirsin (Dünya → Şehir → Meyhane).
 
 ## Oyun içi rehber
 Sağ üstteki **Info** düğmesi (ya da **F1**) her şeyin nasıl yapıldığını anlatan rehberi açar: harita çizme, su ekleme, fırça boyutu, krallıklar, semboller ve iç içe haritalar, karakterler, envanter, zarlar, masa modu, kısayollar. Rehberde arama yapılabilir.
@@ -33,6 +33,17 @@ Sağ üstteki **Info** düğmesi (ya da **F1**) her şeyin nasıl yapıldığın
 - Boş okyanusla başlayınca Arazi aracı (B) Çayır seçili açılır; anakarayı fırçayla çizersin. Fırça boyutu 40'a kadar çıkar ( `[` ve `]` tuşları). Kova Dolgu (G) kapalı alanları tek tıkla doldurur.
 - Var olan haritayı sıfırlamak için: sağ panel → **Haritayı Tamamen Temizle** (boş deniz) veya **Tümünü Seçili Araziyle Doldur**.
 - Haritayı sonradan büyütmek için: sağ panel → Boyut → **Uygula**. "Ortadan genişlet" seçiliyse harita her yönden eşit büyür ve semboller, yollar ve jetonlar yerinde kalır.
+
+## Yerlerin içi (iç içe haritalar)
+
+- Bir sembolün içi henüz yoksa harita kendiliğinden üretilmez. Sembol seçilir ve sağ panelde iki seçenek çıkar: **Kendim Çizeceğim** (türüne uygun boş zemin) ya da **Otomatik Oluştur**.
+- Otomatik oluşturma türe uygundur. Şehirde sokaklar, çatılar, çarşı, surlar ve isimli meyhane, han ve dükkanlar olur. Meyhanede tezgâh, fıçılar, masalar ve şömine olur. Ormanda açıklıklar, patika, dere ve kamp olur. Zindanda odalar, koridorlar, tuzaklar ve canavarlar olur.
+- Katman kuralı:
+  - Dünya/Bölge haritasında yerleşimlere, yapılara, doğa alanlarına ve zindanlara girilir.
+  - Şehir haritasında sadece binalara girilir.
+  - Bina, zindan ve yerel alan (orman, dağ…) son katmandır. Ormanın içinde orman açılmaz.
+- Beğenmediğin iç haritayı, o haritaya girip sağ panelden **Yeniden Oluştur** ile baştan üretebilirsin.
+- `scripts/place_generator.gd`: tüm yer türleri için üreticiler.
 
 ## Karakterler ve yaratıklar
 - **Kahramanlar ve NPC'ler** 26 ırk ve 17 sınıftan oluşturulabilir. İnsan, Yüksek/Orman/Kara Elf, Yarı-Elf, Cüce, Buçukluk, Gnom, Yarı-Ork, Ork, Goblin, Hobgoblin, Kobold, Şeytansoyu, Ejderdoğan, Göksoylu, Dağ Devi Soyu, Kedi/Kertenkele/Kuş/Tavşan Halkı, Minotor, Sentor, Orman Devi Soyu, Elementsoyu ve Deniz Halkı var. Savaşçı, Barbar, Paladin, Korucu, Hırsız, Büyücü, Sihirbaz, Ahitli, Rahip, Druid, Ozan, Keşiş ve Mucit sınıflarına ek olarak Köylü, Tüccar, Soylu ve Muhafız NPC sınıfları da var.

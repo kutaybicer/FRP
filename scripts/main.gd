@@ -195,20 +195,58 @@ func _on_request_enter(sym: Dictionary) -> void:
 		enter_map(link)
 		return
 	var type := str(sym["type"])
-	if Defs.is_enterable(type):
-		_create_child(sym, int(Defs.symbols[type]["child"]))
+	if Defs.enter_kind(type, current.kind) >= 0:
+		# kendiliğinden harita üretme: sağ panelde seçenek sun
+		_refresh_inspector()
+		_toast("Bu yerin içi henüz yok — sağ panelden \"Kendim Çizeceğim\" ya da \"Otomatik Oluştur\" seç.")
+	else:
+		_toast("Bu yerin içine girilemez (doğa alanları ve iç mekanlar tek katmanlıdır).")
 
 
-func _create_child(sym: Dictionary, kind: int) -> void:
+## Sembolün iç haritasını oluşturur. auto=false: boş (kullanıcı çizer), true: türe uygun otomatik
+func _create_child(sym: Dictionary, auto: bool) -> void:
+	var type := str(sym["type"])
+	var kind := Defs.enter_kind(type, current.kind)
+	if kind < 0:
+		return
 	var nm := str(sym.get("name", ""))
 	if nm == "":
-		nm = Defs.symbol_name(str(sym["type"]))
+		nm = Defs.symbol_name(type)
+	view.record()
 	var m := campaign.create_map(kind, nm, current.id)
-	MapGenerator.starter_content(m)
+	var sz := PlaceGenerator.size_for(type, kind)
+	m.scale = sz["scale"]
+	m.setup(sz["cols"], sz["rows"], Defs.KIND_DEFAULTS[kind]["fill"])
+	if auto:
+		_toast("Oluşturuluyor...")
+		PlaceGenerator.generate(m, type)
+	else:
+		PlaceGenerator.blank(m, type)
 	sym["link"] = m.id
 	_mark_dirty()
-	_toast("Yeni %s haritası oluşturuldu: %s" % [Defs.KIND_NAMES[kind].to_lower(), nm])
+	_toast("%s: %s (%s)" % ["Otomatik oluşturuldu" if auto else "Boş harita hazır, çizmeye başla", nm, Defs.KIND_NAMES[kind].to_lower()])
 	enter_map(m.id)
+
+
+## Alt harita yoksa: boş / otomatik seçimi (düzenleme ve oyun modunda ortak)
+func _enter_choice(box: VBoxContainer, s: Dictionary) -> void:
+	var type := str(s["type"])
+	var kind := Defs.enter_kind(type, current.kind)
+	if kind < 0:
+		var why := _small("Bu yerin içine girilemez. Orman, dağ gibi doğa alanlarının ve binaların içi tek katmandır; " +
+				"çok katmanlı giriş sadece yerleşimlerde vardır (Dünya → Şehir → Meyhane).")
+		why.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		box.add_child(why)
+		return
+	var info := _small("Bu yerin içi henüz yok. İçine girince açılacak %s haritasını nasıl oluşturalım?" % Defs.KIND_NAMES[kind].to_lower())
+	info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(info)
+	box.add_child(_btn("Kendim Çizeceğim  (boş harita)", func() -> void: _create_child(s, false),
+			"Türüne uygun boş zemin açılır; içini sen çizersin"))
+	var ab := _btn("Otomatik Oluştur  >", func() -> void: _create_child(s, true),
+			"Türüne uygun hazır iç harita: şehirde sokaklar ve dükkanlar, meyhanede masalar ve tezgâh, ormanda açıklıklar ve patikalar")
+	ab.add_theme_color_override("font_color", Color("ffd27a"))
+	box.add_child(ab)
 
 
 func _mark_dirty() -> void:
@@ -527,7 +565,7 @@ func _build_ui() -> void:
 	add_row.add_child(kind_opt)
 	add_row.add_child(_btn("+ Alt Harita", func() -> void:
 		var m := campaign.create_map(kind_opt.selected, "Yeni " + Defs.KIND_NAMES[kind_opt.selected], current.id)
-		MapGenerator.starter_content(m)
+		PlaceGenerator.blank(m, "")
 		_mark_dirty()
 		enter_map(m.id)))
 
@@ -618,7 +656,7 @@ func _rebuild_tool_options() -> void:
 			if view.play_mode:
 				_hint(box, "MASA MODU\n• Sembole tıkla: o yerin haritasına gir (şehir, zindan...)\n• Boş yeri sürükle: kaydır\n• Grup jetonunu sürükle: grubu taşı (sis varsa etrafı açılır)\n• Shift + sürükle: mesafe ölç\n• Backspace: üst haritaya dön")
 			else:
-				_hint(box, "• Tık: seç, sürükle: taşı\n• Çift tık (sembol): alt haritasına gir / yoksa oluştur\n• Delete: seçileni sil\n• Boş yeri sürükle veya sağ tık: kaydır\n• Tekerlek: yakınlaştır\n• Shift + sürükle: mesafe ölç")
+				_hint(box, "• Tık: seç, sürükle: taşı\n• Çift tık (sembol): içine gir / yoksa sağdan oluştur\n• Delete: seçileni sil\n• Boş yeri sürükle veya sağ tık: kaydır\n• Tekerlek: yakınlaştır\n• Shift + sürükle: mesafe ölç")
 			hint_label.text = "Çift tık: sembole gir  •  Backspace: üst harita"
 		T.TERRAIN:
 			_brush_slider(box)
@@ -814,10 +852,15 @@ func _symbol_options(box: Control) -> void:
 	var first := ""
 	match current.kind:
 		Defs.Kind.CITY: first = "Şehir"
-		Defs.Kind.DUNGEON, Defs.Kind.BUILDING: first = "Zindan / İç Mekan"
+		Defs.Kind.DUNGEON: first = "Zindan / İç Mekan"
+		Defs.Kind.BUILDING: first = "Mobilya"
+		Defs.Kind.SITE: first = "Doğa"
 	if first != "":
 		cats.erase(first)
 		cats.push_front(first)
+	if current.kind == Defs.Kind.BUILDING:
+		cats.erase("Zindan / İç Mekan")
+		cats.insert(1, "Zindan / İç Mekan")
 	var group := ButtonGroup.new()
 	for cat in cats:
 		box.add_child(_header(str(cat).to_upper()))
@@ -974,26 +1017,10 @@ func _inspect_map() -> void:
 		return
 
 	box.add_child(HSeparator.new())
-	box.add_child(_header("RASTGELE ARAZİ ÜRET"))
-	var gr := HBoxContainer.new()
-	box.add_child(gr)
-	gr.add_child(_small("Tohum"))
-	var seed_spin := _spin(0, 999999, 1, _gen_seed, func(v: float) -> void: _gen_seed = int(v))
-	seed_spin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	gr.add_child(seed_spin)
-	gr.add_child(_btn("Zar", func() -> void: seed_spin.value = randi() % 1000000, "Rastgele tohum"))
-	var island := _check("Kıta / ada (kenarlar deniz)", current.kind == Defs.Kind.WORLD)
-	var rivers := _check("Nehirler ekle", true)
-	var nature := _check("Dağ / orman sembolleri ekle", true)
-	for c in [island, rivers, nature]:
-		box.add_child(c)
-	box.add_child(_btn("Araziyi Üret", func() -> void:
-		_ask("Arazi ve bölge boyaları yeniden oluşturulacak (semboller, yollar ve yazılar korunur). Devam?", func() -> void:
-			view.record()
-			MapGenerator.generate_terrain(current, _gen_seed, island.button_pressed, rivers.button_pressed, nature.button_pressed)
-			view.rebuild_all()
-			_set_tool(T.SELECT)
-			_refresh_inspector())))
+	if current.kind in [Defs.Kind.WORLD, Defs.Kind.REGION]:
+		_terrain_gen(box)
+	else:
+		_place_regen(box)
 
 	box.add_child(HSeparator.new())
 	box.add_child(_header("ARAÇLAR"))
@@ -1024,6 +1051,66 @@ func _inspect_map() -> void:
 		del.add_theme_color_override("font_color", Color("ff8a7a"))
 		box.add_child(del)
 
+
+
+func _terrain_gen(box: VBoxContainer) -> void:
+	box.add_child(_header("RASTGELE ARAZİ ÜRET"))
+	var gr := HBoxContainer.new()
+	box.add_child(gr)
+	gr.add_child(_small("Tohum"))
+	var seed_spin := _spin(0, 999999, 1, _gen_seed, func(v: float) -> void: _gen_seed = int(v))
+	seed_spin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	gr.add_child(seed_spin)
+	gr.add_child(_btn("Zar", func() -> void: seed_spin.value = randi() % 1000000, "Rastgele tohum"))
+	var island := _check("Kıta / ada (kenarlar deniz)", current.kind == Defs.Kind.WORLD)
+	var rivers := _check("Nehirler ekle", true)
+	var nature := _check("Dağ / orman sembolleri ekle", true)
+	for c in [island, rivers, nature]:
+		box.add_child(c)
+	box.add_child(_btn("Araziyi Üret", func() -> void:
+		_ask("Arazi ve bölge boyaları yeniden oluşturulacak (semboller, yollar ve yazılar korunur). Devam?", func() -> void:
+			view.record()
+			MapGenerator.generate_terrain(current, _gen_seed, island.button_pressed, rivers.button_pressed, nature.button_pressed)
+			view.rebuild_all()
+			_set_tool(T.SELECT)
+			_refresh_inspector())))
+
+
+## Bu haritaya açılan sembolün türü (üst haritada link'i bu haritayı gösteren sembol)
+func _source_type(m: MapData) -> String:
+	var p: MapData = campaign.maps.get(m.parent_id)
+	if p != null:
+		for s in p.symbols:
+			if str(s.get("link", "")) == m.id:
+				return str(s["type"])
+	return ""
+
+
+## Şehir / bina / zindan / yerel alan: türüne uygun yeniden oluşturma
+func _place_regen(box: VBoxContainer) -> void:
+	box.add_child(_header("OTOMATİK OLUŞTUR"))
+	var type := _source_type(current)
+	if type == "":
+		box.add_child(_small("Bu harita bir sembole bağlı olmadığı için türü bilinmiyor."))
+		return
+	var tip := _small("Bu harita: %s. İçini türüne uygun olarak baştan oluşturabilirsin." % Defs.symbol_name(type))
+	tip.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(tip)
+	box.add_child(_btn("Yeniden Oluştur", func() -> void:
+		_ask("Bu haritadaki arazi, semboller, yollar ve yazılar silinip yeniden oluşturulacak (Geri Al ile dönebilirsin). Devam?", func() -> void:
+			view.record()
+			var sz := PlaceGenerator.size_for(type, current.kind)
+			current.setup(sz["cols"], sz["rows"], Defs.KIND_DEFAULTS[current.kind]["fill"])
+			current.symbols.clear()
+			current.paths.clear()
+			current.labels.clear()
+			current.regions.clear()
+			PlaceGenerator.generate(current, type)
+			_mark_dirty()
+			view.rebuild_all()
+			_fit()
+			_set_tool(T.SELECT)
+			_refresh_inspector())))
 
 func _inspect_symbol(s: Dictionary) -> void:
 	var box := inspector
@@ -1085,10 +1172,7 @@ func _inspect_symbol(s: Dictionary) -> void:
 			view.redraw()
 			_refresh_inspector(), "Harita silinmez, Harita Ağacı'nda kalır"))
 	else:
-		var child := int(Defs.symbols.get(type, {}).get("child", -1))
-		var ko := _kind_option(child if child >= 0 else Defs.Kind.BUILDING)
-		box.add_child(ko)
-		box.add_child(_btn("Alt Harita Oluştur ve Gir  >", func() -> void: _create_child(s, ko.selected)))
+		_enter_choice(box, s)
 		var others: Array = []
 		for m in campaign.maps.values():
 			if m.id != current.id:
@@ -1127,6 +1211,9 @@ func _inspect_symbol_play(s: Dictionary) -> void:
 	var link := str(s.get("link", ""))
 	if link != "" and campaign.maps.has(link):
 		box.add_child(_btn("Haritaya Gir  >", func() -> void: enter_map(link)))
+	elif Defs.enter_kind(str(s["type"]), current.kind) >= 0:
+		box.add_child(HSeparator.new())
+		_enter_choice(box, s)
 
 
 func _inspect_path(p: Dictionary) -> void:

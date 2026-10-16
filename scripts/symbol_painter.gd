@@ -68,6 +68,21 @@ static func draw_symbol(ci: CanvasItem, type: String, pos: Vector2, radius: floa
 		"pillar": _pillar(ci)
 		"npc": _person(ci, Color("3b6ea5"))
 		"monster": _monster(ci)
+		"table": _table(ci)
+		"chair": _chair(ci)
+		"bench": _bench(ci)
+		"bed": _bed(ci)
+		"barrel": _barrel(ci)
+		"crate": _crate(ci)
+		"counter": _counter(ci)
+		"fireplace": _fireplace(ci)
+		"bookshelf": _bookshelf(ci)
+		"rug": _rug(ci)
+		"throne": _throne(ci)
+		"banner": _banner(ci)
+		"cauldron": _cauldron(ci)
+		"weapon_rack": _weapon_rack(ci)
+		"plant": _plant(ci)
 		_: _pin(ci)
 	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
@@ -489,3 +504,111 @@ static func draw_party(ci: CanvasItem, pos: Vector2, radius: float) -> void:
 	ci.draw_line(Vector2(-2, 8), Vector2(-2, -10), INK, 2.0)
 	_poly(ci, PackedVector2Array([Vector2(-2, -10), Vector2(9, -6), Vector2(-2, -2)]), RED, 1.2)
 	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+# ---------------------------------------------------------------- mobilya (kuş bakışı)
+
+static func _table(ci: CanvasItem) -> void:
+	_rect(ci, Rect2(-14, -10, 28, 20), WOOD)
+	for y in [-4.0, 2.0]:
+		ci.draw_line(Vector2(-13, y), Vector2(13, y), WOOD_D, 1.0)
+	ci.draw_circle(Vector2(-6, -3), 2.2, Color("e8dcc0"))
+	ci.draw_circle(Vector2(5, 3), 2.6, Color("b03a2e"))
+
+
+static func _chair(ci: CanvasItem) -> void:
+	_rect(ci, Rect2(-8, -6, 16, 14), WOOD)
+	_rect(ci, Rect2(-9, -11, 18, 5), WOOD_D)
+
+
+static func _bench(ci: CanvasItem) -> void:
+	_rect(ci, Rect2(-16, -5, 32, 10), WOOD)
+	ci.draw_line(Vector2(-15, 0), Vector2(15, 0), WOOD_D, 1.0)
+
+
+static func _bed(ci: CanvasItem) -> void:
+	_rect(ci, Rect2(-10, -15, 20, 30), WOOD_D)
+	_rect(ci, Rect2(-8, -13, 16, 26), Color("f2ead7"), 1.0)
+	_rect(ci, Rect2(-6, -12, 12, 6), Color.WHITE, 1.0)
+	_rect(ci, Rect2(-8, -2, 16, 15), Color("8a2a3a"), 1.0)
+	ci.draw_line(Vector2(-8, 2), Vector2(8, 2), Color("c9a24a"), 1.2)
+
+
+static func _barrel(ci: CanvasItem) -> void:
+	_disc(ci, Vector2.ZERO, 12, WOOD)
+	ci.draw_arc(Vector2.ZERO, 9.5, 0, TAU, 24, Color("5b5650"), 2.0, true)
+	for i in 4:
+		var a := i * PI / 4.0
+		ci.draw_line(Vector2(cos(a), sin(a)) * 9, -Vector2(cos(a), sin(a)) * 9, WOOD_D, 0.8)
+	ci.draw_circle(Vector2.ZERO, 2.0, WOOD_D)
+
+
+static func _crate(ci: CanvasItem) -> void:
+	_rect(ci, Rect2(-12, -12, 24, 24), Color("a07040"))
+	ci.draw_line(Vector2(-12, -12), Vector2(12, 12), WOOD_D, 2.0)
+	ci.draw_line(Vector2(12, -12), Vector2(-12, 12), WOOD_D, 2.0)
+	ci.draw_rect(Rect2(-9, -9, 18, 18), WOOD_D, false, 1.0)
+
+
+static func _counter(ci: CanvasItem) -> void:
+	_rect(ci, Rect2(-16, -6, 32, 12), WOOD_D)
+	_rect(ci, Rect2(-16, -6, 32, 4), WOOD, 1.0)
+	ci.draw_circle(Vector2(-8, 1), 2.4, Color("e8b923"))
+	ci.draw_circle(Vector2(6, 1), 2.4, Color("e8dcc0"))
+
+
+static func _fireplace(ci: CanvasItem) -> void:
+	_rect(ci, Rect2(-15, -12, 30, 10), STONE_D)
+	_poly(ci, PackedVector2Array([Vector2(-12, -2), Vector2(12, -2), Vector2(9, 10), Vector2(-9, 10)]), Color("3a3028"))
+	_poly(ci, PackedVector2Array([Vector2(-7, 8), Vector2(-4, -1), Vector2(-1, 5), Vector2(1, -5), Vector2(4, 4), Vector2(7, 8)]), Color("e67e22"), 1.0)
+	ci.draw_colored_polygon(PackedVector2Array([Vector2(-3, 8), Vector2(0, 1), Vector2(3, 8)]), Color("f7dc6f"))
+
+
+static func _bookshelf(ci: CanvasItem) -> void:
+	_rect(ci, Rect2(-16, -6, 32, 12), WOOD_D)
+	var cols := [Color("8a2a2a"), Color("2e4a8a"), Color("3a6a3a"), Color("c9a24a"), Color("6a3a7a")]
+	for i in 9:
+		ci.draw_rect(Rect2(-14 + i * 3.2, -4, 2.4, 8), cols[i % cols.size()], true)
+
+
+static func _rug(ci: CanvasItem) -> void:
+	_rect(ci, Rect2(-16, -11, 32, 22), Color("8a2a2a"))
+	ci.draw_rect(Rect2(-13, -8, 26, 16), Color("c9a24a"), false, 1.5)
+	ci.draw_colored_polygon(PackedVector2Array([Vector2(0, -6), Vector2(8, 0), Vector2(0, 6), Vector2(-8, 0)]), Color("2e4a6a"))
+
+
+static func _throne(ci: CanvasItem) -> void:
+	_rect(ci, Rect2(-12, -14, 24, 8), GOLD)
+	_rect(ci, Rect2(-10, -6, 20, 16), Color("8a1a2a"))
+	_rect(ci, Rect2(-14, -6, 4, 16), GOLD, 1.2)
+	_rect(ci, Rect2(10, -6, 4, 16), GOLD, 1.2)
+	_star(ci, Vector2(0, -10), 3, 1.3, Color("f2ead7"))
+
+
+static func _banner(ci: CanvasItem) -> void:
+	ci.draw_line(Vector2(-8, -15), Vector2(-8, 15), INK, 2.0)
+	_poly(ci, PackedVector2Array([Vector2(-7, -13), Vector2(11, -13), Vector2(11, 8), Vector2(2, 3), Vector2(-7, 8)]), Color("2e4a8a"))
+	_star(ci, Vector2(2, -4), 4, 1.8, GOLD)
+
+
+static func _cauldron(ci: CanvasItem) -> void:
+	_disc(ci, Vector2.ZERO, 12, Color("2b2b2b"))
+	ci.draw_circle(Vector2.ZERO, 8.5, Color("5fae4a"))
+	ci.draw_circle(Vector2(-3, -2), 2, Color("a8e070"))
+	ci.draw_circle(Vector2(3, 2), 1.5, Color("a8e070"))
+
+
+static func _weapon_rack(ci: CanvasItem) -> void:
+	_rect(ci, Rect2(-15, -4, 30, 8), WOOD_D)
+	for i in 4:
+		var x := -11.0 + i * 7.3
+		ci.draw_line(Vector2(x, -14), Vector2(x, 12), Color("c8d0d8"), 2.0)
+		ci.draw_line(Vector2(x - 3, 7), Vector2(x + 3, 7), GOLD, 1.5)
+
+
+static func _plant(ci: CanvasItem) -> void:
+	_disc(ci, Vector2.ZERO, 9, Color("8a4a2a"))
+	for i in 6:
+		var a := i * TAU / 6.0
+		_disc(ci, Vector2(cos(a), sin(a)) * 6, 5, Color("4a8a3a"), 1.0)
+	ci.draw_circle(Vector2.ZERO, 4, Color("6aaa4a"))

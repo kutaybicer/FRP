@@ -62,6 +62,16 @@ Sağ üstteki **Info** düğmesi (ya da **F1**) her şeyin nasıl yapıldığın
 - Karakter kartında **Fotoğraf Ekle...** ile bilgisayardan bir resim seçilir (PNG, JPG, WEBP, BMP). Resim ortadan kare kırpılır ve 512×512 PNG olarak kampanya dosyasına gömülür.
 - Karakter kartında, listede ve harita jetonunda altın çerçeveli yuvarlak içinde görünür. **Fotoğrafı Kaldır** çizilmiş portreye döner.
 
+## Yetenekler
+- Üst çubukta **Yetenekler (Y)** düğmesi 432 yetenekten oluşan kütüphaneyi açar (`scripts/skills.gd`). Kütüphane 42 kategoriye ayrılmıştır: silah ustalıkları, alan saldırıları, element büyüleri, nekromansi, şifa, çağırma, dönüşüm, doğa ve hayvanlar, ırk ve sınıf yetenekleri, efsanevi yetenekler.
+- Kütüphanede ada ve açıklamaya göre arama yapılabilir; kategori ve tür süzgeçleri vardır. Seçilen yetenek, seçilen karakterin **Yetenek Defteri**'ne kopyalanır.
+- Karakter kartındaki **Yetenek Defteri** sekmesi başta boştur. Kütüphaneden yetenek eklenebilir ya da kendi yeteneğini yazabilirsin. Her kart düzenlenebilir ve altta geniş bir not alanı vardır.
+
+## Can
+- Can değerleri tamamen elle ayarlanabilir: karakter kartında ya da haritada jetona tıklayınca sağ panelde. Yaratık kopyalarının her birinin canı ayrıdır.
+- Elle girilen can ırk, sınıf ya da seviye değişince ezilmez (**Can / ZS Yeniden Hesapla** ile otomatik hesaplanır).
+- Her jetonun altında can barı görünür.
+
 ## Envanter
 - Karakter kartındaki **Envanter** sekmesinde 8 kuşanma yuvası var: Silah 1, Silah 2, Kask, Omuzluk, Gövde Zırhı, Eldiven, Bacak Zırhı, Ayakkabı. Ayrıca sınırsız bir **çanta** var (yedek eşyalar, iksirler, parşömenler...).
 - Bütün eşyalar **tek tiptir** ve her şeyi düzenlenebilir: ad, tür (şablon), ikon, nadirlik (Sıradan → Efsanevi), adet, renk ve serbest **özellik metni** (hasar, büyü, açıklama... ne yazarsan).

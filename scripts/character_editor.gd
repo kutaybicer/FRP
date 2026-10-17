@@ -8,6 +8,7 @@ signal place_requested(id: String)
 signal duplicate_requested(id: String)
 signal delete_requested(id: String)
 signal rolled(result: Dictionary, label: String)
+signal library_requested(id: String)
 
 const GOLD := Color("e0b85c")
 const COLOR_KEYS := {"skin": "Ten", "hair_color": "Saç / Tüy", "eye_color": "Göz", "cloth": "Kıyafet", "accent": "Süsleme / Kürk",
@@ -167,6 +168,7 @@ func _rebuild() -> void:
 	_tab_look()
 	_tab_stats()
 	_tab_inventory()
+	_tab_skills()
 	_tab_notes()
 	_tabs.current_tab = clampi(cur, 0, _tabs.get_tab_count() - 1)
 
@@ -388,16 +390,19 @@ func _tab_stats() -> void:
 			_changed()
 			_rebuild()))
 		btns.add_child(_btn("Can / ZS Yeniden Hesapla", func() -> void:
-			Lore.recalc(ch)
+			Lore.recalc(ch, true)
 			_changed()
 			_rebuild()))
 	box.add_child(HSeparator.new())
 	var g2 := _grid(box, 4)
-	_row(g2, "Can (şu an)", _spin(-50, 2000, int(ch.get("hp", 1)), func(v: float) -> void:
+	# can tamamen senin elinde: girdiğin değer ırk / seviye değişince ezilmez
+	_row(g2, "Can (şu an)", _spin(-999, 99999, int(ch.get("hp", 1)), func(v: float) -> void:
 		ch["hp"] = int(v)
+		ch["hp_manual"] = true
 		_changed()))
-	_row(g2, "Can (en fazla)", _spin(1, 2000, int(ch.get("hp_max", 1)), func(v: float) -> void:
+	_row(g2, "Can (en fazla)", _spin(1, 99999, int(ch.get("hp_max", 1)), func(v: float) -> void:
 		ch["hp_max"] = int(v)
+		ch["hp_manual"] = true
 		_changed()))
 	_row(g2, "Zırh Sınıfı (ZS)", _spin(0, 40, int(ch.get("ac", 10)), func(v: float) -> void:
 		ch["ac"] = int(v)
@@ -439,6 +444,115 @@ func _tab_inventory() -> void:
 	_tabs.add_child(inv)
 	_tabs.set_tab_title(_tabs.get_tab_count() - 1, "Envanter")
 	inv.changed.connect(func() -> void: _changed())
+
+
+## Yetenek defteri: başta boş. Kütüphaneden yetenek eklenir ya da kendi yeteneğini yazarsın.
+## Her yetenek kartının adı, türü, açıklaması ve notları serbestçe değiştirilebilir.
+func _tab_skills() -> void:
+	var box := _page("Yetenek Defteri")
+	if not ch.has("skills"):
+		ch["skills"] = []
+	var skills: Array = ch["skills"]
+	var top := HBoxContainer.new()
+	box.add_child(top)
+	var lib := _btn("Yetenek Kütüphanesinden Ekle...", func() -> void: library_requested.emit(str(ch.get("id", ""))))
+	lib.add_theme_color_override("font_color", GOLD)
+	top.add_child(lib)
+	top.add_child(_btn("+ Boş Yetenek Yaz", func() -> void:
+		skills.push_front(Skills.make_entry({"name": "Yeni Yetenek", "type": "Aktif", "desc": ""}))
+		_changed()
+		_rebuild()))
+	var cnt := _small("   %d yetenek" % skills.size())
+	top.add_child(cnt)
+	if skills.is_empty():
+		var empty := Label.new()
+		empty.text = "\nDefter boş.\n\nYukarıdaki düğmeyle yetenek kütüphanesinden (400'den fazla yetenek) seçebilir\nya da kendi yeteneğini yazabilirsin. Üst çubuktaki \"Yetenekler\" menüsünden de ekleyebilirsin."
+		empty.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		empty.add_theme_color_override("font_color", Color(0.6, 0.56, 0.48))
+		empty.custom_minimum_size.y = 200
+		box.add_child(empty)
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 10)
+	grid.add_theme_constant_override("v_separation", 10)
+	box.add_child(grid)
+	for i in skills.size():
+		grid.add_child(_skill_card(skills, skills[i]))
+	box.add_child(HSeparator.new())
+	box.add_child(_small("Defter notları (serbest yazı: büyü listeleri, kullanım hakları, kombinasyonlar...)"))
+	var te := _text_edit(str(ch.get("skill_notes", "")), func(t: String) -> void:
+		ch["skill_notes"] = t
+		changed.emit(ch.get("id", "")))
+	te.custom_minimum_size.y = 260
+	box.add_child(te)
+
+
+func _skill_card(skills: Array, s: Dictionary) -> Control:
+	var card := PanelContainer.new()
+	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	card.custom_minimum_size.x = 300
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.17, 0.14, 0.11)
+	sb.border_color = Color(0.55, 0.45, 0.25)
+	sb.set_border_width_all(1)
+	sb.set_corner_radius_all(6)
+	sb.set_content_margin_all(8)
+	card.add_theme_stylebox_override("panel", sb)
+	var v := VBoxContainer.new()
+	card.add_child(v)
+	var h := HBoxContainer.new()
+	v.add_child(h)
+	var nm := LineEdit.new()
+	nm.text = str(s.get("name", ""))
+	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	nm.add_theme_color_override("font_color", GOLD)
+	nm.text_changed.connect(func(t: String) -> void:
+		s["name"] = t
+		changed.emit(ch.get("id", "")))
+	h.add_child(nm)
+	var ty := OptionButton.new()
+	for t in Skills.TYPES:
+		ty.add_item(t)
+	ty.selected = maxi(0, Skills.TYPES.find(str(s.get("type", "Aktif"))))
+	ty.item_selected.connect(func(i: int) -> void:
+		s["type"] = Skills.TYPES[i]
+		changed.emit(ch.get("id", "")))
+	h.add_child(ty)
+	var del := _btn("✕", func() -> void:
+		skills.erase(s)
+		_changed()
+		_rebuild())
+	del.tooltip_text = "Bu yeteneği defterden çıkar"
+	del.add_theme_color_override("font_color", Color("ff8a7a"))
+	h.add_child(del)
+	if str(s.get("cat", "")) != "" or str(s.get("tags", "")) != "":
+		var meta := _small(str(s.get("cat", "")) + ("  •  " + str(s["tags"]) if str(s.get("tags", "")) != "" else ""))
+		meta.add_theme_font_size_override("font_size", 12)
+		meta.clip_text = true
+		v.add_child(meta)
+	var d := TextEdit.new()
+	d.text = str(s.get("desc", ""))
+	d.placeholder_text = "Yetenek ne yapar? (hasar, süre, menzil, bekleme...)"
+	d.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY
+	d.custom_minimum_size.y = 74
+	d.text_changed.connect(func() -> void:
+		s["desc"] = d.text
+		changed.emit(ch.get("id", "")))
+	v.add_child(d)
+	var n := LineEdit.new()
+	n.text = str(s.get("notes", ""))
+	n.placeholder_text = "Not: kullanım hakkı, seviye, bekleme süresi..."
+	n.text_changed.connect(func(t: String) -> void:
+		s["notes"] = t
+		changed.emit(ch.get("id", "")))
+	v.add_child(n)
+	return card
+
+
+## Yetenek eklendiğinde dışarıdan çağrılır (kütüphane penceresi)
+func refresh_if(id: String) -> void:
+	if visible and str(ch.get("id", "")) == id:
+		_rebuild()
 
 
 func roll(expr: String, label: String) -> void:

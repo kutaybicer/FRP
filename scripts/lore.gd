@@ -837,7 +837,8 @@ func total_stat(ch: Dictionary, s: String) -> int:
 
 
 ## Can, zırh, hız ve boyutu ırk/sınıf/seviyeye göre yeniden hesaplar.
-func recalc(ch: Dictionary) -> void:
+## Kullanıcı canı elle girdiyse (hp_manual) can korunur; force_hp=true ise yine de hesaplanır.
+func recalc(ch: Dictionary, force_hp := false) -> void:
 	if ch.get("kind", "") != "character":
 		return
 	var c: Dictionary = classes.get(ch["class"], classes["fighter"])
@@ -846,8 +847,10 @@ func recalc(ch: Dictionary) -> void:
 	var hd := int(c["hd"])
 	var lvl := maxi(1, int(ch["level"]))
 	var hp := hd + con + (lvl - 1) * (hd / 2 + 1 + con)
-	ch["hp_max"] = maxi(1, hp)
-	ch["hp"] = ch["hp_max"]
+	if force_hp or not ch.get("hp_manual", false):
+		ch["hp_max"] = maxi(1, hp)
+		ch["hp"] = ch["hp_max"]
+		ch["hp_manual"] = false
 	var dex := modifier(total_stat(ch, "dex"))
 	var base_ac := int(c["ac"])
 	match c["outfit"]:

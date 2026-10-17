@@ -22,6 +22,7 @@ var char_search: LineEdit
 var char_filter := "all"
 var editor: CharacterEditor
 var bestiary: BestiaryWindow
+var skills_win: SkillsWindow
 var _chars_pending := false
 var dice_tray: PanelContainer
 var dice_count: SpinBox
@@ -376,7 +377,7 @@ func _input(event: InputEvent) -> void:
 		return
 	if f and f.get_window() != get_window():
 		return   # açık bir pencere / diyalog Esc'yi kendisi kullansın
-	for w in [guide, editor, bestiary, new_dialog]:
+	for w in [guide, editor, bestiary, new_dialog, skills_win]:
 		if w != null and w.visible:
 			return
 	if view.tool == T.SELECT and view.selected_kind == "":
@@ -423,6 +424,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		KEY_K: _set_move_mode(not view.move_mode)
 		KEY_HOME: _fit()
 		KEY_D: _toggle_dice_tray()
+		KEY_Y: _open_skills("")
 		KEY_F1: guide.open()
 		KEY_H:
 			view.show_grid = not view.show_grid
@@ -527,6 +529,9 @@ func _build_ui() -> void:
 			"Eski kağıt harita görünümü"))
 	bar.add_child(_btn("Sığdır", _fit, "Home"))
 	bar.add_child(VSeparator.new())
+	var sk_btn := _btn("Yetenekler (Y)", func() -> void: _open_skills(""), "Tüm yetenekler: ara, incele, karakterin yetenek defterine ekle")
+	sk_btn.add_theme_color_override("font_color", GOLD)
+	bar.add_child(sk_btn)
 	var dice_btn := _btn("Zarlar (D)", _toggle_dice_tray, "Zar tepsisini aç / kapat")
 	dice_btn.add_theme_color_override("font_color", GOLD)
 	bar.add_child(dice_btn)
@@ -1404,6 +1409,10 @@ func _build_characters_tab() -> void:
 		_refresh_characters()
 		editor.open(copy))
 	editor.delete_requested.connect(_delete_character)
+	skills_win = SkillsWindow.new()
+	ui.add_child(skills_win)
+	skills_win.add_requested.connect(_add_skill)
+	editor.library_requested.connect(func(id: String) -> void: _open_skills(id))
 	bestiary = BestiaryWindow.new()
 	ui.add_child(bestiary)
 	bestiary.picked.connect(func(species: String) -> void:
@@ -1412,6 +1421,33 @@ func _build_characters_tab() -> void:
 		_mark_dirty()
 		_refresh_characters()
 		_start_place(id))
+
+
+## Yetenek kütüphanesini aç. target: önceden seçili karakter (boşsa seçili jetonun ya da açık kartın karakteri)
+func _open_skills(target: String) -> void:
+	if target == "":
+		if editor.visible:
+			target = str(editor.ch.get("id", ""))
+		elif view.selected_kind == "token":
+			target = str(view.selected.get("char", ""))
+	skills_win.characters = campaign.characters
+	skills_win.open(target)
+
+
+func _add_skill(char_id: String, skill: Dictionary) -> void:
+	var ch: Dictionary = campaign.characters.get(char_id, {})
+	if ch.is_empty():
+		return
+	if not ch.has("skills"):
+		ch["skills"] = []
+	for s in ch["skills"]:
+		if str(s.get("name", "")) == str(skill["name"]):
+			_toast("%s zaten %s defterinde." % [skill["name"], ch["name"]])
+			return
+	ch["skills"].append(Skills.make_entry(skill))
+	_mark_dirty()
+	editor.refresh_if(char_id)
+	_toast("%s → %s yetenek defterine eklendi." % [skill["name"], ch["name"]])
 
 
 ## Kahraman, NPC ya da yaratık: onaydan sonra kampanyadan ve tüm haritalardan silinir
@@ -1669,30 +1705,58 @@ func _inspect_token(tok: Dictionary) -> void:
 	pr.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	box.add_child(pr)
 	box.add_child(_small(Lore.describe(ch) + "  •  " + Lore.ROLES.get(ch.get("role", ""), "")))
-	var hp := int(tok.get("hp", 0)) if creature else int(ch.get("hp", 0))
-	var hp_max := int(ch.get("hp_max", 1))
+	var hv := MapView.token_hp(tok, ch)
+	var hp := hv.x
+	var hp_max := maxi(1, hv.y)
 	var hpl := _header("CAN: %d / %d" % [hp, hp_max])
 	hpl.add_theme_color_override("font_color", Color("4caf50") if hp > hp_max / 2 else (Color("e0b85c") if hp > hp_max / 4 else Color("ff8a7a")))
 	box.add_child(hpl)
-	var amount := _spin(1, 999, 1, 1, func(_v: float) -> void: pass)
-	var change := func(delta: int) -> void:
+	var set_hp := func(v: int, vmax: int) -> void:
 		if creature:
-			tok["hp"] = clampi(int(tok.get("hp", 0)) + delta, -99, hp_max)
+			tok["hp"] = v
+			tok["hp_max"] = vmax
 		else:
-			ch["hp"] = clampi(int(ch.get("hp", 0)) + delta, -99, hp_max)
+			ch["hp"] = v
+			ch["hp_max"] = vmax
+			ch["hp_manual"] = true
 		_mark_dirty()
 		view.redraw()
+	# canı elle ata: şu anki ve en fazla can
+	var g := GridContainer.new()
+	g.columns = 2
+	box.add_child(g)
+	g.add_child(_small("Can (şu an)"))
+	var cur_sp := _spin(-999, 99999, 1, hp, func(_v: float) -> void: pass)
+	g.add_child(cur_sp)
+	g.add_child(_small("Can (en fazla)"))
+	var max_sp := _spin(1, 99999, 1, hp_max, func(_v: float) -> void: pass)
+	g.add_child(max_sp)
+	cur_sp.value_changed.connect(func(v: float) -> void:
+		set_hp.call(int(v), int(max_sp.value))
+		hpl.text = "CAN: %d / %d" % [int(v), int(max_sp.value)])
+	max_sp.value_changed.connect(func(v: float) -> void:
+		set_hp.call(int(cur_sp.value), int(v))
+		hpl.text = "CAN: %d / %d" % [int(cur_sp.value), int(v)])
+	if creature:
+		var cn := _small("Her yaratık kopyasının canı ayrıdır. Yeni kopyaların başlangıç canı karakter kartından ayarlanır.")
+		cn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		cn.custom_minimum_size.x = 200
+		box.add_child(cn)
+	var amount := _spin(1, 999, 1, 1, func(_v: float) -> void: pass)
+	var change := func(delta: int) -> void:
+		var now := MapView.token_hp(tok, ch)
+		set_hp.call(clampi(now.x + delta, -999, now.y), now.y)
 		_refresh_inspector()
 	var row := HBoxContainer.new()
 	box.add_child(row)
 	row.add_child(amount)
-	var dmg := _btn("Hasar", func() -> void: change.call(-int(amount.value)))
+	var dmg := _btn("Hasar", func() -> void: change.call(-_spin_now(amount)))
 	dmg.add_theme_color_override("font_color", Color("ff8a7a"))
 	row.add_child(dmg)
-	var heal := _btn("İyileştir", func() -> void: change.call(int(amount.value)))
+	var heal := _btn("İyileştir", func() -> void: change.call(_spin_now(amount)))
 	heal.add_theme_color_override("font_color", Color("8fd18f"))
 	row.add_child(heal)
-	row.add_child(_btn("Tam", func() -> void: change.call(hp_max - hp), "Canı doldur"))
+	row.add_child(_btn("Tam", func() -> void: change.call(999999), "Canı doldur"))
 	box.add_child(_small("Zırh Sınıfı: %d   •   Hız: %s m   •   İnisiyatif: %s" % [int(ch.get("ac", 10)), str(ch.get("speed", 9)), Lore.mod_text(Lore.total_stat(ch, "dex"))]))
 	var stats := []
 	for s in Lore.STATS:

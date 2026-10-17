@@ -717,6 +717,14 @@ func remove_tokens_of(char_id: String) -> bool:
 
 
 ## Karakteri haritaya koyar. Karakterler tek jeton (taşınır), yaratıklar her tıkta yeni jeton.
+## Jetonun canı: yaratık kopyalarının her birinin kendi canı (ve istenirse kendi en fazla canı) vardır;
+## kahraman / NPC'lerin canı karakter kartındadır.
+static func token_hp(tok: Dictionary, ch: Dictionary) -> Vector2i:
+	if ch.get("kind", "") == "creature":
+		return Vector2i(int(tok.get("hp", ch.get("hp_max", 1))), int(tok.get("hp_max", ch.get("hp_max", 1))))
+	return Vector2i(int(ch.get("hp", 0)), int(ch.get("hp_max", 1)))
+
+
 func place_token(char_id: String, p: Vector2) -> void:
 	var ch: Dictionary = characters[char_id]
 	record()
@@ -739,6 +747,7 @@ func place_token(char_id: String, p: Vector2) -> void:
 	map.tokens.append(tok)
 	_reveal_around(tok)
 	select(tok, "token")
+	_tokens.queue_redraw()
 	token_placed.emit(char_id)
 
 
@@ -1329,19 +1338,25 @@ func _draw_tokens() -> void:
 		var dc: Color = Lore.DISPOSITION_COLORS.get(ch.get("disposition", "neutral"), Color.WHITE)
 		ci.draw_arc(pos, r * 0.985, 0, TAU, 48, SymbolPainter.INK, maxf(2.0, r * 0.16), true)
 		ci.draw_arc(pos, r * 0.985, 0, TAU, 48, dc, maxf(1.2, r * 0.09), true)
-		var hp := int(tok.get("hp", ch.get("hp", 0)))
-		var hp_max := maxi(1, int(ch.get("hp_max", 1)))
+		var hv := token_hp(tok, ch)
+		var hp := hv.x
+		var hp_max := maxi(1, hv.y)
 		if hp <= 0:
 			ci.draw_circle(pos, r * 0.94, Color(0.1, 0.05, 0.05, 0.55))
 			ci.draw_line(pos + Vector2(-r, -r) * 0.55, pos + Vector2(r, r) * 0.55, Color("d84a3a"), r * 0.14, true)
 			ci.draw_line(pos + Vector2(r, -r) * 0.55, pos + Vector2(-r, r) * 0.55, Color("d84a3a"), r * 0.14, true)
-		if hp < hp_max or ch.get("kind", "") == "creature":
-			var w := r * 1.7
-			var bar := Rect2(pos + Vector2(-w * 0.5, r + 2.0), Vector2(w, maxf(2.5, r * 0.16)))
-			ci.draw_rect(bar.grow(0.8), SymbolPainter.INK, true)
-			var f := clampf(float(hp) / hp_max, 0.0, 1.0)
-			var hc := Color("4caf50") if f > 0.5 else (Color("e0b85c") if f > 0.25 else Color("d84a3a"))
-			ci.draw_rect(Rect2(bar.position, Vector2(bar.size.x * f, bar.size.y)), hc, true)
+		# can barı: her jetonun altında hep görünür
+		var w := r * 1.9
+		var bh := maxf(4.0, r * 0.3)
+		var bar := Rect2(pos + Vector2(-w * 0.5, r + 2.5), Vector2(w, bh))
+		ci.draw_rect(bar.grow(1.0), SymbolPainter.INK, true)
+		ci.draw_rect(bar, Color(0.25, 0.08, 0.07), true)
+		var f := clampf(float(hp) / hp_max, 0.0, 1.0)
+		var hc := Color("4caf50") if f > 0.5 else (Color("e0b85c") if f > 0.25 else Color("d84a3a"))
+		ci.draw_rect(Rect2(bar.position, Vector2(bar.size.x * f, bar.size.y)), hc, true)
+		ci.draw_rect(Rect2(bar.position, Vector2(bar.size.x * f, bar.size.y * 0.35)), Color(1, 1, 1, 0.25), true)
+		if bh >= 4.0:
+			_text(ci, bar.get_center() + Vector2(0, bh * 0.36), "%d/%d" % [hp, hp_max], int(bh * 0.95), Color.WHITE, Color(0, 0, 0, 0), 0)
 		var lbl := str(tok.get("label", ""))
 		if lbl != "":
 			var bp := pos + Vector2(r * 0.72, -r * 0.72)
@@ -1350,7 +1365,7 @@ func _draw_tokens() -> void:
 			ci.draw_circle(bp, br * 0.82, dc)
 			_text(ci, bp + Vector2(0, -br * 0.05), lbl, int(br * 1.3), SymbolPainter.INK, Color(0, 0, 0, 0), 0)
 		if show_names:
-			_text(ci, pos + Vector2(0, r + 12.0), str(ch.get("name", "")), 14, SymbolPainter.INK)
+			_text(ci, pos + Vector2(0, r + 14.0 + bh), str(ch.get("name", "")), 14, SymbolPainter.INK)
 
 
 func _draw_top() -> void:
@@ -1412,8 +1427,8 @@ func _draw_top() -> void:
 	if not _hover_token.is_empty() and not _drag_obj:
 		var ch: Dictionary = characters.get(_hover_token.get("char", ""), {})
 		if not ch.is_empty():
-			var hp := int(_hover_token.get("hp", ch.get("hp", 0)))
-			var t := "%s  •  Can %d/%d  •  ZS %d" % [ch.get("name", ""), hp, int(ch.get("hp_max", 0)), int(ch.get("ac", 10))]
+			var hv := token_hp(_hover_token, ch)
+			var t := "%s  •  Can %d/%d  •  ZS %d" % [ch.get("name", ""), hv.x, hv.y, int(ch.get("ac", 10))]
 			_draw_tooltip(ci, _mouse + Vector2(14, -14) / z, t, z)
 		return
 	# üzerine gelinen sembol için ipucu

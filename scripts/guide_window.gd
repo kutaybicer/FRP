@@ -13,6 +13,22 @@ var _shown: Array = []
 # [başlık, içerik (BBCode)] — [k]...[/k] kısayol, [g]...[/g] düğme/menü adı olarak renklenir
 var topics: Array = [
 	["Yenilikler (Son Güncellemeler)", """[h]Son eklenenler[/h]
+[b]Yetenekler ([k]Y[/k])[/b]
+• Üst çubukta [g]Yetenekler[/g]: oyundaki 400'den fazla yeteneğin kütüphanesi. Silah ustalıkları ve güçlü vuruşlar, alan saldırıları, silah güçlendirmeleri, ateş / buz / şimşek / toprak / su / ışık / gölge büyüleri, nekromansi (ölü canlandırma), şifa, çağırma, dönüşüm, hayvanlarla konuşma, ırk ve sınıf yetenekleri, efsanevi yetenekler...
+• Üstteki arama çubuğuna yaz (ör. [b]ateş[/b], [b]kılıç[/b], [b]ölü[/b]): adı aramayla başlayanlar en üstte. Kategori ve tür (Aktif / Pasif / Tepki / Ritüel / Duruş / Aura) süzgeci de var.
+• Sağ altta karakteri seç, [g]Yetenek Defterine Ekle[/g] (ya da listede çift tık).
+
+[b]Yetenek Defteri[/b]
+• Her karakterin kartında yeni bir [g]Yetenek Defteri[/g] sekmesi var. Başta boştur.
+• [g]Yetenek Kütüphanesinden Ekle...[/g] ya da [g]+ Boş Yetenek Yaz[/g] (kendi yeteneğini yaz).
+• Defterdeki her yeteneğin adı, türü, açıklaması ve notu serbestçe değiştirilebilir; [b]✕[/b] defterden çıkarır. Altta geniş bir serbest not alanı var.
+
+[b]Can tamamen senin elinde[/b]
+• Haritada bir jetona tıkla: sağ panelde [g]Can (şu an)[/g] ve [g]Can (en fazla)[/g] kutularına istediğin değeri yaz. Hasar / İyileştir / Tam düğmeleri de duruyor.
+• Her yaratık kopyasının (Kurt 1, Kurt 2...) canı ayrıdır. Kahraman ve NPC'lerin canı karakter kartındakiyle aynıdır.
+• Karakter kartında elle girdiğin can, ırk / sınıf / seviye değişince artık ezilmez. Otomatik hesap istersen [g]Can / ZS Yeniden Hesapla[/g].
+• Her jetonun altında hep bir [b]can barı[/b] görünür (yeşil → sarı → kırmızı); yakınlaşınca içinde can sayısı yazar.
+
 [b]Karaktere fotoğraf[/b]
 • Karakter kartında [g]Fotoğraf Ekle...[/g]: bilgisayarından bir resim seç, karakterin portresi ve harita jetonu o olsun. Ayrıntılar: [g]Karakter Oluşturmak[/g].
 
@@ -344,6 +360,7 @@ Bu uygulamayla oyun dünyanı çizebilir; şehirler, zindanlar ve iç içe harit
 [cell][k]Q[/k][/cell][cell]Grup jetonu[/cell]
 [cell][k]C[/k][/cell][cell]Karakter (jeton) aracı[/cell]
 [cell][k]D[/k][/cell][cell]Zar tepsisi[/cell]
+[cell][k]Y[/k][/cell][cell]Yetenekler (kütüphane)[/cell]
 [cell][k]F1[/k][/cell][cell]Bu rehber[/cell]
 [cell][k][lb][/k] / [k][rb][/k][/cell][cell]Fırçayı küçült / büyüt[/cell]
 [cell][k]H[/k][/cell][cell]Izgara aç / kapa[/cell]

@@ -355,7 +355,6 @@ func _process(_delta: float) -> void:
 		_nature_root.visible = not far
 		_sym_root.visible = not far
 		_lod_root.visible = far
-		_labels_node.queue_redraw()
 
 
 func _chunk_key(s: Dictionary) -> String:
@@ -434,7 +433,7 @@ func _draw_chunk(k: String, ci: Node2D) -> void:
 
 
 func _draw_labels() -> void:
-	if map == null or _far:
+	if map == null:
 		return
 	for l in map.labels:
 		_text(_labels_node, l["pos"], str(l["text"]), int(l.get("size", 22)), l.get("color", Color.BLACK),

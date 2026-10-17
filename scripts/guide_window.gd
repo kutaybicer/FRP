@@ -151,7 +151,7 @@ Bu uygulamayla oyun dünyanı çizebilir; şehirler, zindanlar ve iç içe harit
 	["Görünüm ve Dışa Aktarma", """[h]Üst çubuktaki görünüm seçenekleri[/h]
 • [g]Izgara[/g] ([k]H[/k]): hücre ızgarası.
 • [g]İsimler[/g]: sembol, yol ve jeton isimleri.
-• [g]HD Görünüm[/g]: organik kıyılar, dalgalar, arazi dokuları ve yumuşak sınırlar. Kapatınca klasik kare hücre görünümü.
+• [g]HD Görünüm[/g]: organik kıyılar, dalgalar, arazi dokuları, araziler arası yumuşak geçişler, kuşbakışı ağaç tepeleri ve ışık-gölge (dağlar kabartma gibi görünür; şehirde binalar, iç mekanlarda duvarlar gölge düşürür). Kapatınca klasik kare hücre görünümü (zayıf bilgisayarlarda daha hızlı).
 • [g]Parşömen[/g]: sepya tonlu eski kağıt harita görünümü.
 • [g]Sığdır[/g] ([k]Home[/k]): haritayı ekrana sığdır.
 

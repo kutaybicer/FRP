@@ -217,6 +217,9 @@ func _apply_shader_params() -> void:
 		mat.set_shader_parameter("palette", Defs.terrain_palette)
 		mat.set_shader_parameter("fancy", hd)
 	_terrain_mat.set_shader_parameter("parchment", parchment)
+	# açık arazide biyomlar yumuşak karışır; şehir / bina / zindanda keskin kalır
+	_terrain_mat.set_shader_parameter("blend_biomes", warp >= 0.5)
+	_terrain_mat.set_shader_parameter("relief", 1.0 if warp >= 0.5 else 0.85)
 	_region_mat.set_shader_parameter("region_idx", _region_tex)
 	_region_mat.set_shader_parameter("region_pal", _region_pal_tex)
 

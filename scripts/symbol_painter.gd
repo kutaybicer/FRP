@@ -37,7 +37,7 @@ static func draw_symbol(ci: CanvasItem, type: String, pos: Vector2, radius: floa
 		"volcano": _volcano(ci)
 		"forest": _forest(ci)
 		"pine": _pine(ci)
-		"tree": _tree(ci, Vector2(0, 2), 9.0)
+		"tree": _tree(ci, Vector2(0, -3), 8.5)
 		"dungeon": _dungeon(ci)
 		"cave": _cave(ci)
 		"ruins": _ruins(ci)
@@ -144,10 +144,24 @@ static func _mound(ci: CanvasItem, cx: float, base: float, w: float, h: float, f
 	_poly(ci, pts, fill)
 
 
+## Yapraklı ağaç: belirgin gövde + yer gölgesi + üç parçalı, ışık almış taç
 static func _tree(ci: CanvasItem, c: Vector2, r: float) -> void:
-	ci.draw_line(c + Vector2(0, r * 0.4), c + Vector2(0, r * 1.3), WOOD_D, 2.5)
-	_disc(ci, c, r, GREEN)
-	ci.draw_circle(c + Vector2(-r * 0.3, -r * 0.3), r * 0.35, GREEN_L)
+	var foot := c + Vector2(0, r * 1.55)
+	ci.draw_colored_polygon(_ellipse_pts(foot + Vector2(r * 0.25, 0), r * 0.75, r * 0.22, 14), Color(0, 0, 0, 0.22))
+	var tw := r * 0.2
+	var trunk := PackedVector2Array([c + Vector2(-tw * 0.7, r * 0.2), c + Vector2(tw * 0.7, r * 0.2),
+			foot + Vector2(tw, 0), foot + Vector2(-tw, 0)])
+	_poly(ci, trunk, WOOD, 1.1)
+	ci.draw_line(c + Vector2(tw * 0.2, r * 0.5), foot + Vector2(tw * 0.3, -r * 0.1), WOOD_D, maxf(tw * 0.5, 0.8))
+	# taç: koyu gölge tabanı + üç yumru
+	var lobes := [[Vector2(-r * 0.42, r * 0.08), r * 0.62], [Vector2(r * 0.42, r * 0.08), r * 0.62], [Vector2(0, -r * 0.32), r * 0.7]]
+	for l in lobes:
+		ci.draw_circle(c + l[0], l[1] + 1.2, INK)
+	for l in lobes:
+		ci.draw_circle(c + l[0], l[1], GREEN)
+	for l in lobes:
+		ci.draw_circle(c + l[0] + Vector2(-l[1] * 0.25, -l[1] * 0.25), l[1] * 0.5, GREEN_L)
+	ci.draw_circle(c + Vector2(-r * 0.3, -r * 0.5), r * 0.16, Color(1, 1, 0.8, 0.35))
 
 
 static func _bg(ci: CanvasItem) -> void:
@@ -234,16 +248,21 @@ static func _volcano(ci: CanvasItem) -> void:
 
 
 static func _forest(ci: CanvasItem) -> void:
-	_tree(ci, Vector2(0, -4), 7)
-	_tree(ci, Vector2(-7, 2), 7)
-	_tree(ci, Vector2(7, 2), 7)
+	# arkadaki ağaç önce çizilir; öndekilerin gövdeleri açıkça görünür
+	_tree(ci, Vector2(0, -8), 6.2)
+	_tree(ci, Vector2(-7.5, -1), 6.0)
+	_tree(ci, Vector2(7.5, -1), 6.0)
 
 
 static func _pine(ci: CanvasItem) -> void:
-	for x in [-7.0, 7.0, 0.0]:
-		var y := 4.0 if x != 0.0 else 0.0
-		ci.draw_line(Vector2(x, y + 6), Vector2(x, y + 10), WOOD_D, 2.0)
-		_poly(ci, PackedVector2Array([Vector2(x - 6, y + 6), Vector2(x, y - 12), Vector2(x + 6, y + 6)]), Color("2f5d34"))
+	for x in [0.0, -7.0, 7.0]:
+		var y := 3.0 if x != 0.0 else -2.0
+		ci.draw_colored_polygon(_ellipse_pts(Vector2(x + 1.5, y + 11), 4.5, 1.4, 12), Color(0, 0, 0, 0.22))
+		_rect(ci, Rect2(x - 1.3, y + 4, 2.6, 7), WOOD, 1.0)
+		# iki katlı çam dalları
+		_poly(ci, PackedVector2Array([Vector2(x - 6.5, y + 5), Vector2(x, y - 5), Vector2(x + 6.5, y + 5)]), Color("2f5d34"))
+		_poly(ci, PackedVector2Array([Vector2(x - 5, y - 1), Vector2(x, y - 12), Vector2(x + 5, y - 1)]), Color("3a6e3e"))
+		ci.draw_line(Vector2(x - 0.5, y - 10), Vector2(x - 3.5, y - 2), Color(1, 1, 0.8, 0.25), 1.2)
 
 
 # ---------------------------------------------------------------- özel yerler

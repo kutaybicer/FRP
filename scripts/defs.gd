@@ -44,6 +44,9 @@ var water_lookup := PackedByteArray()
 # 0 düz, 1 orman, 2 dağ/tepe, 3 kum, 4 kar, 5 taş döşeme, 6 ahşap, 7 duvar, 8 kaya boşluk, 9 bataklık, 10 lav, 11 çayır,
 # 12 çatı kiremidi, 13 tarla sıraları
 var terrain_styles: Array = [0, 0, 0, 3, 11, 11, 1, 9, 3, 2, 2, 4, 10, 0, 5, 5, 6, 7, 8, 0, 12, 12, 13]
+# Rölyef (ışık-gölge) için arazi yüksekliği (-1..1). Duvar ve çatılar da yüksek: gölge düşürürler.
+var terrain_heights: Array = [-0.5, -0.3, -0.1, 0.02, 0.07, 0.05, 0.12, 0.02, 0.06, 0.32, 0.72, 0.92,
+		0.4, 0.05, 0.03, 0.0, 0.0, 0.55, 0.6, 0.0, 0.4, 0.4, 0.06]
 var terrain_palette: ImageTexture
 
 var font_title: Font   # bölge isimleri, harita yazıları (Cinzel)
@@ -163,7 +166,8 @@ func _ready() -> void:
 	var img := Image.create(256, 2, false, Image.FORMAT_RGBA8)
 	for i in terrains.size():
 		img.set_pixel(i, 0, terrains[i]["color"])
-		img.set_pixel(i, 1, Color8(255 if terrains[i]["water"] else 0, terrain_styles[i], 0))
+		var hb := int(clampf(float(terrain_heights[i]) * 0.5 + 0.5, 0.0, 1.0) * 255.0)
+		img.set_pixel(i, 1, Color8(255 if terrains[i]["water"] else 0, terrain_styles[i], hb))
 	terrain_palette = ImageTexture.create_from_image(img)
 	font_title = _load_font("res://fonts/Cinzel.ttf", 700)
 	font_text = _load_font("res://fonts/EBGaramond.ttf", 600)

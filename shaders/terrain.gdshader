@@ -5,6 +5,8 @@ shader_type canvas_item;
 
 uniform bool fancy = true;
 uniform bool parchment = false;
+uniform float relief = 1.0;       // ışık-gölge gücü (0 kapalı)
+uniform bool blend_biomes = true; // komşu araziler arasında yumuşak geçiş
 
 const vec3 INK = vec3(0.16, 0.12, 0.08);
 
@@ -16,6 +18,69 @@ int style_of(int t) {
 	return int(texelFetch(palette, ivec2(t, 1), 0).g * 255.0 + 0.5);
 }
 
+float height_of(int t) {
+	return texelFetch(palette, ivec2(t, 1), 0).b * 2.0 - 1.0;
+}
+
+// Hücre yüksekliklerinin çift doğrusal karışımı: yumuşak bir yükseklik alanı
+float height_at(vec2 cell) {
+	vec2 q = cell - 0.5;
+	vec2 i = floor(q);
+	vec2 f = fract(q);
+	f = f * f * (3.0 - 2.0 * f);
+	float a = height_of(terrain_at(i + vec2(0.5, 0.5)));
+	float b = height_of(terrain_at(i + vec2(1.5, 0.5)));
+	float c = height_of(terrain_at(i + vec2(0.5, 1.5)));
+	float d = height_of(terrain_at(i + vec2(1.5, 1.5)));
+	float h = mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+	// dağlarda yükseklikle artan kayalık pürüz
+	return h + (fbm(cell * 0.9) - 0.5) * 0.45 * clamp(h - 0.15, 0.0, 1.0);
+}
+
+// Ağaç tepeleri: her biri ışık alan, gölgeli yuvarlak taçlar (kuşbakışı orman)
+float canopy(vec2 cell, out float tint) {
+	vec2 p = cell * 2.3;
+	vec2 ip = floor(p);
+	float best = -1.0;
+	float light = 0.55;   // taçların arası: koyu orman tabanı
+	tint = 0.0;
+	for (int y = -1; y <= 1; y++) {
+		for (int x = -1; x <= 1; x++) {
+			vec2 g = ip + vec2(float(x), float(y));
+			float h1 = hash21(g);
+			float h2 = hash21(g + 17.3);
+			vec2 ctr = g + 0.5 + (vec2(h1, h2) - 0.5) * 0.7;
+			float rad = 0.5 + 0.28 * hash21(g + 5.1);
+			vec2 v = (p - ctr) / rad;
+			float d = dot(v, v);
+			if (d < 1.0 && h1 > best) {
+				best = h1;
+				float z = sqrt(1.0 - d);
+				float lam = dot(normalize(vec3(v, z)), normalize(vec3(-0.6, -0.7, 0.9)));
+				light = 0.62 + 0.5 * clamp(lam, 0.0, 1.0) + 0.06 * vnoise(p * 4.0);
+				tint = h2;
+			}
+		}
+	}
+	return light;
+}
+
+// Su renklerinin çift doğrusal karışımı (kara hücreleri sığ su sayılır)
+vec3 water_col(vec2 cell) {
+	vec2 q = cell - 0.5;
+	vec2 i = floor(q);
+	vec2 f = fract(q);
+	int ta = terrain_at(i + vec2(0.5, 0.5));
+	int tb = terrain_at(i + vec2(1.5, 0.5));
+	int tc = terrain_at(i + vec2(0.5, 1.5));
+	int td = terrain_at(i + vec2(1.5, 1.5));
+	vec3 ca = terrain_is_water(ta) ? pal(ta) : pal(2);
+	vec3 cb = terrain_is_water(tb) ? pal(tb) : pal(2);
+	vec3 cc = terrain_is_water(tc) ? pal(tc) : pal(2);
+	vec3 cd = terrain_is_water(td) ? pal(td) : pal(2);
+	return mix(mix(ca, cb, f.x), mix(cc, cd, f.x), f.y);
+}
+
 float mortar(vec2 p, float w) {
 	vec2 f = fract(p);
 	float e = min(min(f.x, 1.0 - f.x), min(f.y, 1.0 - f.y));
@@ -23,10 +88,12 @@ float mortar(vec2 p, float w) {
 }
 
 vec3 land_detail(vec3 col, int style, vec2 cell) {
-	if (style == 1) { // orman: ağaç tepeleri
-		float b = fbm(cell * 1.4);
-		col *= mix(0.8, 1.08, smoothstep(0.3, 0.7, b));
-		col += vec3(0.03, 0.05, 0.0) * smoothstep(0.6, 0.8, fbm(cell * 3.0 + 4.0));
+	if (style == 1) { // orman: tek tek ağaç tepeleri
+		float tint;
+		float l = canopy(cell, tint);
+		col = mix(col, col * vec3(0.85, 1.05, 0.8), tint * 0.6);
+		col *= l;
+		col += vec3(0.02, 0.04, 0.0) * smoothstep(0.6, 0.8, fbm(cell * 0.8 + 4.0));
 	} else if (style == 2) { // dağ / tepe: gölgelendirme
 		// yumuşak sırtlar: düşük frekanslı yükseklikten ışık-gölge
 		vec2 p = cell * 0.5;
@@ -82,8 +149,10 @@ vec3 land_detail(vec3 col, int style, vec2 cell) {
 		float rows = 0.5 + 0.5 * sin(dir * 5.5);
 		vec3 crop = mix(vec3(0.62, 0.72, 0.32), vec3(0.85, 0.74, 0.38), hash21(plot + 7.0));
 		col = mix(col, crop, 0.55) * (0.85 + 0.2 * rows);
-	} else if (style == 11) { // çayır / ova
-		col *= 0.96 + 0.06 * vnoise(cell * 4.0);
+	} else if (style == 11) { // çayır / ova: çimen öbekleri ve hafif renk dalgalanması
+		col *= 0.95 + 0.07 * vnoise(cell * 4.0);
+		col *= 0.97 + 0.07 * smoothstep(0.55, 0.85, vnoise(cell * 13.0)) - 0.05 * smoothstep(0.6, 0.9, vnoise(cell * 9.0 + 3.0));
+		col = mix(col, col * vec3(1.06, 1.02, 0.85), smoothstep(0.55, 0.8, fbm(cell * 0.25 + 11.0)) * 0.5);
 	}
 	return col;
 }
@@ -107,6 +176,12 @@ void fragment() {
 		}
 		col = pal(t);
 		if (water) {
+			if (blend_biomes) {
+				// derin deniz / deniz / sığ su arasında geniş, yumuşak geçiş (köşeli basamaklar yerine)
+				vec2 jit = (vec2(vnoise(cell * 0.9), vnoise(cell * 0.9 + 5.0)) - 0.5) * 1.2;
+				col = (water_col(wc + jit + vec2(1.1, 1.1)) + water_col(wc + jit + vec2(-1.1, 1.1))
+						+ water_col(wc + jit + vec2(1.1, -1.1)) + water_col(wc + jit + vec2(-1.1, -1.1))) * 0.25;
+			}
 			col = mix(pal(2) * 1.1, col, smoothstep(0.55, 0.97, far));
 			float rip = 0.0;
 			for (int i = 0; i < 2; i++) {
@@ -115,9 +190,57 @@ void fragment() {
 			}
 			col = mix(col, col * 1.3 + 0.04, clamp(rip, 0.0, 1.0) * 0.45);
 			col *= 0.94 + 0.12 * fbm(cell * 0.7);
+			// açık denizde ince dalga çizgileri
+			float wv = sin(cell.x * 1.7 + cell.y * 0.6 + fbm(cell * 0.35) * 8.0);
+			col = mix(col, col * 1.12 + 0.02, smoothstep(0.93, 1.0, wv) * smoothstep(0.85, 1.0, far) * 0.6);
 		} else {
+			if (blend_biomes) {
+				// dört komşu hücrenin rengini gürültülü sınırla karıştır: yumuşak, doğal geçişler
+				vec2 q = wc - 0.5;
+				vec2 i0 = floor(q);
+				vec2 f = fract(q) + (vec2(vnoise(cell * 1.7), vnoise(cell * 1.7 + 9.0)) - 0.5) * 0.55;
+				f = smoothstep(0.2, 0.8, clamp(f, 0.0, 1.0));
+				int ta = terrain_at(i0 + vec2(0.5, 0.5));
+				int tb = terrain_at(i0 + vec2(1.5, 0.5));
+				int tc = terrain_at(i0 + vec2(0.5, 1.5));
+				int td = terrain_at(i0 + vec2(1.5, 1.5));
+				if (terrain_is_water(ta)) ta = t;
+				if (terrain_is_water(tb)) tb = t;
+				if (terrain_is_water(tc)) tc = t;
+				if (terrain_is_water(td)) td = t;
+				if (ta == tb && tb == tc && tc == td) {
+					col = land_detail(pal(ta), style_of(ta), cell);
+				} else {
+					vec3 ca = land_detail(pal(ta), style_of(ta), cell);
+					vec3 cb = land_detail(pal(tb), style_of(tb), cell);
+					vec3 cc = land_detail(pal(tc), style_of(tc), cell);
+					vec3 cd = land_detail(pal(td), style_of(td), cell);
+					col = mix(mix(ca, cb, f.x), mix(cc, cd, f.x), f.y);
+				}
+			} else {
+				col = land_detail(col, style_of(t), cell);
+			}
 			col *= 0.92 + 0.14 * fbm(cell * 0.6);
-			col = land_detail(col, style_of(t), cell);
+			// kıyıda ıslak kum / koyu toprak şeridi
+			col *= 1.0 - 0.12 * smoothstep(0.32, 0.48, m);
+		}
+		if (relief > 0.0) {
+			// ışık-gölge: kuzeybatıdan gelen ışık, yamaçlar ve duvarlar 3B görünür
+			float e = 0.8;
+			float hx = height_at(wc + vec2(e, 0.0)) - height_at(wc - vec2(e, 0.0));
+			float hy = height_at(wc + vec2(0.0, e)) - height_at(wc - vec2(0.0, e));
+			vec3 n = normalize(vec3(-hx * 2.2, -hy * 2.2, 1.0));
+			vec3 L = normalize(vec3(-0.65, -0.75, 0.9));
+			float shade = dot(n, L) / L.z;
+			float h0 = height_at(wc);
+			// yüksek şeylerin güneydoğuya düşen gölgesi (dağ, duvar, çatı)
+			float cast = clamp((height_at(wc - vec2(0.9, 1.1)) - h0) * 1.6, 0.0, 0.35);
+			if (water) {
+				shade = 1.0;
+				cast *= 0.5;
+			}
+			col *= mix(1.0, clamp(shade, 0.55, 1.35), relief);
+			col *= 1.0 - cast * relief;
 		}
 		// mürekkep kıyı çizgisi (ekranda sabit kalınlık)
 		float ink = 1.0 - smoothstep(0.0, fw_m * 1.6, abs(m - 0.5));
@@ -134,6 +257,13 @@ void fragment() {
 		col = mix(col, col * vec3(0.8, 0.68, 0.5), smoothstep(0.62, 0.8, fbm(cell * 0.2 + 7.0)) * 0.5);
 		vec2 e = min(UV, 1.0 - UV) * map_cells;
 		col *= mix(0.45, 1.0, smoothstep(0.0, 14.0, min(e.x, e.y)));
+	}
+	if (fancy) {
+		// hafif renk canlandırma ve harita kenarlarında yumuşak karartma
+		float lum = dot(col, vec3(0.3, 0.59, 0.11));
+		col = mix(vec3(lum), col, 1.1);
+		vec2 e = min(UV, 1.0 - UV) * map_cells;
+		col *= mix(0.78, 1.0, smoothstep(0.0, 6.0, min(e.x, e.y)));
 	}
 	COLOR = vec4(col, 1.0);
 }

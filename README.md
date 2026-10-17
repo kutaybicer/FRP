@@ -62,6 +62,10 @@ Sağ üstteki **Info** düğmesi (ya da **F1**) her şeyin nasıl yapıldığın
 - Karakter kartında **Fotoğraf Ekle...** ile bilgisayardan bir resim seçilir (PNG, JPG, WEBP, BMP). Resim ortadan kare kırpılır ve 512×512 PNG olarak kampanya dosyasına gömülür.
 - Karakter kartında, listede ve harita jetonunda altın çerçeveli yuvarlak içinde görünür. **Fotoğrafı Kaldır** çizilmiş portreye döner.
 
+## Rastgele harita: limanlar ve karşılaşmalar
+- Rastgele kıtalarda kıyı uzunluğuna göre en az 2-3 liman konur. Liman yalnızca denize bakan kıyılara kurulur, küçük göllere kurulmaz.
+- Doğa alanlarının (orman, dağ, tepe, yanardağ) içi otomatik oluşturulunca %20 şansla ortama uygun bir düşman grubu jeton olarak konur (`scripts/encounters.gd`).
+
 ## Yetenekler
 - Üst çubukta **Yetenekler (Y)** düğmesi 432 yetenekten oluşan kütüphaneyi açar (`scripts/skills.gd`). Kütüphane 42 kategoriye ayrılmıştır: silah ustalıkları, alan saldırıları, element büyüleri, nekromansi, şifa, çağırma, dönüşüm, doğa ve hayvanlar, ırk ve sınıf yetenekleri, efsanevi yetenekler.
 - Kütüphanede ada ve açıklamaya göre arama yapılabilir; kategori ve tür süzgeçleri vardır. Seçilen yetenek, seçilen karakterin **Yetenek Defteri**'ne kopyalanır.

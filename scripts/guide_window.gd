@@ -13,6 +13,18 @@ var _shown: Array = []
 # [başlık, içerik (BBCode)] — [k]...[/k] kısayol, [g]...[/g] düğme/menü adı olarak renklenir
 var topics: Array = [
 	["Yenilikler (Son Güncellemeler)", """[h]Son eklenenler[/h]
+[b]Rastgele haritada limanlar[/b]
+• Rastgele kıtalarda artık her zaman limanlar da var: kıyı uzunluğuna göre en az 2-3, büyük haritalarda daha fazla. Limanlar denize bakan kıyılara kurulur (küçük göllere değil).
+
+[b]Doğa alanlarında düşmanlar[/b]
+• Orman, çam ormanı, dağ, tepe ya da yanardağın içini [g]Otomatik Oluştur[/g] dediğinde [b]%20 şansla[/b] ortama uygun bir düşman grubu çıkar:
+   – Orman: kurt sürüsü, ayı, yaban domuzları, dev örümcekler, haydut pususu, goblin akıncıları, kurtadam...
+   – Dağ: trol, ogreler, tepe / buz devi, harpi sürüsü, grifon yuvası, ork savaş grubu, vivern...
+   – Tepeler: haydut kampı, hobgoblin devriyesi, ork akıncıları, tepe devi, sentor avcılar...
+   – Yanardağ: ateş elementalleri, cehennem köpekleri, ateş devi, yavru ejderha, şeytancıklar...
+• Düşmanlar haritaya jeton olarak konur (sürüdeki her kurt ayrı jeton, Kurt 1, Kurt 2...) ve [g]Karakterler[/g] listesine eklenir. Canlarını jetona tıklayıp ayarlayabilirsin.
+• Bir düşman çıkınca alt çubukta "Dikkat! Burada düşman var" yazar. [g]Yeniden Oluştur[/g] eski otomatik düşmanları temizleyip yeniden zar atar.
+
 [b]Yetenekler ([k]Y[/k])[/b]
 • Üst çubukta [g]Yetenekler[/g]: oyundaki 400'den fazla yeteneğin kütüphanesi. Silah ustalıkları ve güçlü vuruşlar, alan saldırıları, silah güçlendirmeleri, ateş / buz / şimşek / toprak / su / ışık / gölge büyüleri, nekromansi (ölü canlandırma), şifa, çağırma, dönüşüm, hayvanlarla konuşma, ırk ve sınıf yetenekleri, efsanevi yetenekler...
 • Üstteki arama çubuğuna yaz (ör. [b]ateş[/b], [b]kılıç[/b], [b]ölü[/b]): adı aramayla başlayanlar en üstte. Kategori ve tür (Aktif / Pasif / Tepki / Ritüel / Duruş / Aura) süzgeci de var.

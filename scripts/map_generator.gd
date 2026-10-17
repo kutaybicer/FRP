@@ -198,12 +198,22 @@ static func _settlements(map: MapData, rng: RandomNumberGenerator) -> void:
 			land += 1
 	if land < 200:
 		return
-	var sea_near := func(c: int, r: int, rad: int) -> bool:
-		for dy in range(-rad, rad + 1):
-			for dx in range(-rad, rad + 1):
-				if map.in_bounds(c + dx, r + dy) and map.terrain[map.idx(c + dx, r + dy)] in [T.SEA, T.DEEP]:
-					return true
-		return false
+	# deniz: harita kenarına ulaşan ya da büyük su kütleleri (sığ su dahil; küçük göller hariç)
+	var sea := _sea_mask(map)
+	var coast: Array = []   # denize komşu kara hücreleri (liman adayları)
+	for r in range(2, H - 2):
+		for c in range(2, W - 2):
+			var t := map.terrain[r * W + c]
+			if Defs.water_lookup[t] == 1 or t in [T.MOUNTAIN, T.SNOW, T.LAVA, T.SWAMP]:
+				continue
+			var near := false
+			for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+				if sea[(r + d.y) * W + c + d.x] == 1:
+					near = true
+					break
+			if near:
+				coast.append([(1.0 if t in [T.GRASS, T.PLAINS, T.SAND] else 0.6) + (0.5 if river[r * W + c] == 1 else 0.0) + rng.randf() * 0.6, c, r])
+	coast.sort_custom(func(a, b): return a[0] > b[0])
 	var score := func(c: int, r: int) -> float:
 		var t := map.terrain[r * W + c]
 		var s := 0.0
@@ -234,8 +244,9 @@ static func _settlements(map: MapData, rng: RandomNumberGenerator) -> void:
 	var kk := sqrt(land / 4000.0)
 	var plan := [
 		["capital", 1, 18.0, 1.5],
+		# liman: en az 2-3, kıyı uzadıkça artar (kıyısı olmayan haritada yok)
+		["port", 0 if coast.size() < 8 else clampi(2 + coast.size() / 450, 2, 12), 14.0, 1.1],
 		["city", clampi(int(land / 5000.0), 1, 8), 16.0, 1.25],
-		["port", clampi(int(land / 3500.0), 1, 10), 12.0, 1.1],
 		["town", clampi(int(land / 2200.0), 2, 16), 11.0, 1.05],
 		["castle", clampi(int(land / 6000.0), 1, 6), 12.0, 1.05],
 		["fort", clampi(int(land / 7000.0), 0, 6), 10.0, 0.95],
@@ -251,6 +262,8 @@ static func _settlements(map: MapData, rng: RandomNumberGenerator) -> void:
 			# merkeze yakın, verimli bir yer
 			list = cands.slice(0, maxi(cands.size() / 6, 1))
 			list.sort_custom(func(a, b): return Vector2(a[1], a[2]).distance_to(center) < Vector2(b[1], b[2]).distance_to(center))
+		elif type == "port":
+			list = coast
 		elif type in ["castle", "fort"]:
 			list = cands.filter(func(a): return map.terrain[a[2] * W + a[1]] in [T.HILLS, T.PLAINS, T.GRASS])
 			list.shuffle()
@@ -262,8 +275,7 @@ static func _settlements(map: MapData, rng: RandomNumberGenerator) -> void:
 			var r: int = a[2]
 			var t := map.terrain[r * W + c]
 			if type == "port":
-				if not sea_near.call(c, r, 2):
-					continue
+				pass
 			elif t == T.SAND or (type in ["capital", "city"] and t == T.DESERT):
 				continue
 			var p := Vector2(c + 0.5, r + 0.5)
@@ -282,6 +294,43 @@ static func _settlements(map: MapData, rng: RandomNumberGenerator) -> void:
 				nm += " Karakolu"
 			map.symbols.append({"type": type, "pos": p * Defs.CELL, "name": nm, "notes": "", "size": entry[3], "link": ""})
 			n += 1
+
+
+## 1 = deniz hücresi: harita kenarına değen ya da 150 hücreden büyük su kütleleri
+static func _sea_mask(map: MapData) -> PackedByteArray:
+	var W := map.cols
+	var H := map.rows
+	var out := PackedByteArray()
+	out.resize(W * H)
+	var seen := PackedByteArray()
+	seen.resize(W * H)
+	for start in W * H:
+		if seen[start] == 1 or Defs.water_lookup[map.terrain[start]] == 0:
+			continue
+		var comp := PackedInt32Array()
+		var stack := PackedInt32Array([start])
+		seen[start] = 1
+		var edge := false
+		while not stack.is_empty():
+			var k := stack[stack.size() - 1]
+			stack.remove_at(stack.size() - 1)
+			comp.append(k)
+			var c := k % W
+			var r := k / W
+			if c == 0 or r == 0 or c == W - 1 or r == H - 1:
+				edge = true
+			for nk in [k - 1, k + 1, k - W, k + W]:
+				if nk < 0 or nk >= W * H:
+					continue
+				if (nk == k - 1 and c == 0) or (nk == k + 1 and c == W - 1):
+					continue
+				if seen[nk] == 0 and Defs.water_lookup[map.terrain[nk]] == 1:
+					seen[nk] = 1
+					stack.append(nk)
+		if edge or comp.size() >= 150:
+			for k in comp:
+				out[k] = 1
+	return out
 
 
 static func _nature_symbols(map: MapData, rng: RandomNumberGenerator) -> void:

@@ -223,15 +223,29 @@ func _create_child(sym: Dictionary, auto: bool) -> void:
 	var sz := PlaceGenerator.size_for(type, kind)
 	m.scale = sz["scale"]
 	m.setup(sz["cols"], sz["rows"], Defs.KIND_DEFAULTS[kind]["fill"])
+	var enc_text := ""
 	if auto:
 		_toast("Oluşturuluyor...")
 		PlaceGenerator.generate(m, type)
+		enc_text = _maybe_encounter(m, type)
 	else:
 		PlaceGenerator.blank(m, type)
 	sym["link"] = m.id
 	_mark_dirty()
 	_toast("%s: %s (%s)" % ["Otomatik oluşturuldu" if auto else "Boş harita hazır, çizmeye başla", nm, Defs.KIND_NAMES[kind].to_lower()])
 	enter_map(m.id)
+	if enc_text != "":
+		_toast("Dikkat! Burada düşman var: " + enc_text)
+		_refresh_characters()
+
+
+## Doğa alanında (orman, dağ, tepe, yanardağ) %20 şansla ortama uygun düşman grubu
+func _maybe_encounter(m: MapData, type: String) -> String:
+	if not Encounters.has_table(type):
+		return ""
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	return Encounters.spawn(campaign, m, Encounters.roll(type, rng), rng)
 
 
 ## Alt harita yoksa: boş / otomatik seçimi (düzenleme ve oyun modunda ortak)
@@ -1174,6 +1188,12 @@ func _place_regen(box: VBoxContainer) -> void:
 			current.labels.clear()
 			current.regions.clear()
 			PlaceGenerator.generate(current, type)
+			Encounters.clear(campaign, current)
+			current.tokens = current.tokens.filter(func(t): return campaign.characters.has(str(t.get("char", ""))))
+			var et := _maybe_encounter(current, type)
+			if et != "":
+				_toast("Dikkat! Burada düşman var: " + et)
+			_refresh_characters()
 			_mark_dirty()
 			view.rebuild_all()
 			_fit()

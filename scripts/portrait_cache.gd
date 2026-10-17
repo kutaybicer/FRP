@@ -16,6 +16,8 @@ var _vps: Array = []
 var _canvases: Array = []
 var _jobs: Array = []
 var _busy := false
+## Kampanyanın fotoğrafları (id -> PNG baytları). Campaign.photos ile aynı sözlük.
+var photos: Dictionary = {}
 
 
 func _ready() -> void:
@@ -53,6 +55,14 @@ func get_texture(look: Dictionary, size := 256) -> Texture2D:
 func request(key: String, look: Dictionary, size := 256) -> Texture2D:
 	if _cache.has(key):
 		return _cache[key]
+	var pid := str(look.get("photo", ""))
+	if pid != "" and photos.has(pid):
+		# yüklenen fotoğraf: boyanmış portre yerine, aynı altın çerçeveli yuvarlak içinde
+		var tex := _photo_texture(photos[pid], size)
+		if tex:
+			_cache[key] = tex
+			_order.append(key)
+			return tex
 	if not _queued.has(key):
 		_queued[key] = true
 		_queue.append({"key": key, "look": look.duplicate(true), "size": size})
@@ -89,6 +99,55 @@ func _render_batch() -> void:
 	while _order.size() > MAX_CACHE:
 		_cache.erase(_order.pop_front())
 	_busy = false
+
+
+## Kare fotoğrafı yuvarlak çerçeveye yerleştirir (kenarlar yumuşak, altın halka)
+func _photo_texture(png: PackedByteArray, size: int) -> ImageTexture:
+	var src := Image.new()
+	if src.load_png_from_buffer(png) != OK:
+		return null
+	src.convert(Image.FORMAT_RGBA8)
+	src.resize(size, size, Image.INTERPOLATE_LANCZOS)
+	var out := Image.create(size, size, false, Image.FORMAT_RGBA8)
+	var c := Vector2(size, size) * 0.5
+	var r_out := size * 0.5 - 1.0
+	var ring := maxf(3.0, size * 0.035)
+	var r_in := r_out - ring
+	var gold := Color("c9a24a")
+	var gold_d := Color("6b4f1d")
+	for y in size:
+		for x in size:
+			var d := Vector2(x + 0.5, y + 0.5).distance_to(c)
+			if d > r_out + 0.5:
+				continue
+			var col: Color
+			if d < r_in:
+				col = src.get_pixel(x, y)
+				col.a = 1.0
+				# çerçeveye yakın hafif gölge
+				col = col.darkened(clampf((d - (r_in - ring * 1.5)) / (ring * 1.5), 0.0, 1.0) * 0.35)
+				if d > r_in - 0.5:
+					col = col.lerp(gold_d, d - (r_in - 0.5))
+			else:
+				var t := (d - r_in) / ring
+				col = gold_d.lerp(gold, 1.0 - absf(t - 0.45) * 2.0)
+				col.a = clampf(r_out + 0.5 - d, 0.0, 1.0)
+			out.set_pixel(x, y, col)
+	out.generate_mipmaps()
+	return ImageTexture.create_from_image(out)
+
+
+## Seçilen resim dosyasını ortadan kare kırpar, küçültür ve PNG baytı olarak verir
+static func photo_from_file(path: String, size := 512) -> PackedByteArray:
+	var img := Image.load_from_file(path)
+	if img == null or img.is_empty():
+		return PackedByteArray()
+	var s := mini(img.get_width(), img.get_height())
+	img = img.get_region(Rect2i((img.get_width() - s) / 2, (img.get_height() - s) / 2, s, s))
+	img.convert(Image.FORMAT_RGBA8)
+	if s != size:
+		img.resize(size, size, Image.INTERPOLATE_LANCZOS)
+	return img.save_png_to_buffer()
 
 
 func _draw_canvas(i: int) -> void:

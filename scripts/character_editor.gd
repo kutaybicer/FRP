@@ -23,6 +23,9 @@ var _tabs: TabContainer
 var _refresh_timer: Timer
 var _stat_labels := {}
 var _derived: Label
+var _photo_dialog: FileDialog
+var _photo_remove: Button
+var _photo_note: Label
 
 
 func _init() -> void:
@@ -76,6 +79,32 @@ func _ready() -> void:
 	rnd2.alignment = BoxContainer.ALIGNMENT_CENTER
 	left.add_child(rnd2)
 	rnd2.add_child(_btn("Her Şeyi Rastgele", _random_all))
+	# kendi fotoğrafın / çizimin
+	var prow := HBoxContainer.new()
+	prow.alignment = BoxContainer.ALIGNMENT_CENTER
+	left.add_child(prow)
+	var pb := _btn("Fotoğraf Ekle...", func() -> void: _photo_dialog.popup_centered_ratio(0.7))
+	pb.tooltip_text = "Bilgisayarından bir resim seç (PNG, JPG, WEBP, BMP). Ortadan kare kırpılır, kampanya dosyasına kaydedilir."
+	pb.add_theme_color_override("font_color", GOLD)
+	prow.add_child(pb)
+	_photo_remove = _btn("Fotoğrafı Kaldır", _remove_photo)
+	_photo_remove.add_theme_color_override("font_color", Color("ff8a7a"))
+	prow.add_child(_photo_remove)
+	_photo_note = Label.new()
+	_photo_note.text = "Fotoğraf kullanılıyor. Görünüm sekmesindeki ayarlar fotoğrafı kaldırınca geçerli olur."
+	_photo_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_photo_note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_photo_note.add_theme_font_size_override("font_size", 13)
+	_photo_note.add_theme_color_override("font_color", Color(0.7, 0.65, 0.55))
+	left.add_child(_photo_note)
+	_photo_dialog = FileDialog.new()
+	_photo_dialog.title = "Karakter Fotoğrafı Seç"
+	_photo_dialog.access = FileDialog.ACCESS_FILESYSTEM
+	_photo_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+	_photo_dialog.use_native_dialog = true
+	_photo_dialog.filters = PackedStringArray(["*.png, *.jpg, *.jpeg, *.webp, *.bmp ; Resimler"])
+	_photo_dialog.file_selected.connect(_set_photo)
+	add_child(_photo_dialog)
 
 	_tabs = TabContainer.new()
 	_tabs.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -133,6 +162,7 @@ func _rebuild() -> void:
 		c.queue_free()
 	_portrait.set_look(ch["look"])
 	_update_header()
+	_update_photo_ui()
 	_tab_identity()
 	_tab_look()
 	_tab_stats()
@@ -443,14 +473,52 @@ func _refresh_derived() -> void:
 		_derived.text = txt
 
 
+# =============================================================== fotoğraf
+
+func _set_photo(path: String) -> void:
+	var png := Portraits.photo_from_file(path)
+	if png.is_empty():
+		_photo_note.text = "Bu dosya açılamadı. PNG, JPG, WEBP ya da BMP bir resim seç."
+		_photo_note.visible = true
+		return
+	var id := "ph_%d_%d" % [int(Time.get_unix_time_from_system()), randi() % 100000]
+	Portraits.photos[id] = png
+	ch["look"]["photo"] = id
+	_photo_note.text = "Fotoğraf kullanılıyor. Görünüm sekmesindeki ayarlar fotoğrafı kaldırınca geçerli olur."
+	_portrait.set_look(ch["look"])
+	_update_photo_ui()
+	_changed()
+
+
+func _remove_photo() -> void:
+	ch["look"].erase("photo")
+	_portrait.set_look(ch["look"])
+	_update_photo_ui()
+	_changed()
+
+
+func _update_photo_ui() -> void:
+	var has := str(ch.get("look", {}).get("photo", "")) != ""
+	_photo_remove.visible = has
+	_photo_note.visible = has
+
+
+## Rastgele görünümde yüklenen fotoğraf kaybolmasın (kaldırmak için "Fotoğrafı Kaldır")
+func _keep_photo(old_look: Dictionary) -> void:
+	if old_look.has("photo"):
+		ch["look"]["photo"] = old_look["photo"]
+
+
 # =============================================================== rastgele
 
 func _random_look() -> void:
+	var old: Dictionary = ch["look"]
 	if _is_creature():
 		var fresh := Lore.new_creature(ch["species"])
 		ch["look"] = fresh["look"]
 	else:
 		ch["look"] = Lore.random_look(ch.get("race", "human"), ch.get("class", "fighter"))
+	_keep_photo(old)
 	_changed(true)
 	_rebuild()
 
@@ -475,7 +543,9 @@ func _random_all() -> void:
 	ch["race"] = Lore.races.keys().pick_random()
 	ch["class"] = pcs.pick_random()
 	ch["name"] = Lore.random_name(ch["race"])
+	var old: Dictionary = ch["look"]
 	ch["look"] = Lore.random_look(ch["race"], ch["class"])
+	_keep_photo(old)
 	ch["alignment"] = Lore.ALIGNMENTS.pick_random()
 	Lore.roll_stats(ch)
 	_changed(true)

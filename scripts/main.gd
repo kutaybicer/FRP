@@ -126,6 +126,7 @@ func _process(delta: float) -> void:
 ## start: 0 rastgele kıta, 1 boş okyanus, 2 boş kara, 3 boş parşömen
 func _new_campaign(start := 0, cols := 120, rows := 80, scale := 10.0) -> void:
 	campaign = Campaign.new()
+	Portraits.photos = campaign.photos
 	view.characters = campaign.characters
 	editor.characters = campaign.characters
 	var world := campaign.create_map(Defs.Kind.WORLD, "Dünya Haritası")
@@ -148,6 +149,7 @@ func _load_campaign(path: String) -> bool:
 		_toast("Dosya açılamadı: " + path)
 		return false
 	campaign = c
+	Portraits.photos = campaign.photos
 	view.characters = campaign.characters
 	editor.characters = campaign.characters
 	current = null

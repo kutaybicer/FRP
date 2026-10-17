@@ -13,6 +13,9 @@ var _shown: Array = []
 # [başlık, içerik (BBCode)] — [k]...[/k] kısayol, [g]...[/g] düğme/menü adı olarak renklenir
 var topics: Array = [
 	["Yenilikler (Son Güncellemeler)", """[h]Son eklenenler[/h]
+[b]Karaktere fotoğraf[/b]
+• Karakter kartında [g]Fotoğraf Ekle...[/g]: bilgisayarından bir resim seç, karakterin portresi ve harita jetonu o olsun. Ayrıntılar: [g]Karakter Oluşturmak[/g].
+
 [b]Düzeltmeler[/b]
 • Karakterler listesinde her kahraman, NPC ve yaratığın yanında [g]Sil[/g] düğmesi var (onay sorar; haritalardaki jetonları da kalkar).
 • Zar tepsisinde [g]Bonus[/g] ve [g]Adet[/g] kutusuna sayıyı yazar yazmaz geçerli olur; Enter'a basmak ya da tepsiyi kapatıp açmak gerekmez.
@@ -205,6 +208,13 @@ Bu uygulamayla oyun dünyanı çizebilir; şehirler, zindanlar ve iç içe harit
 	["Karakter Oluşturmak", """[h]Yeni karakter[/h]
 • Sağ panel → [g]Karakterler[/g] sekmesi → [g]+ Kahraman[/g] (oyuncu karakteri) veya [g]+ NPC[/g].
 • Karakter kartı açılır. Kartı sonra tekrar açmak için listedeki karakter ismine tıkla.
+
+[h]Kendi fotoğrafını / çizimini kullanmak[/h]
+• Karakter kartında portrenin altındaki [g]Fotoğraf Ekle...[/g] düğmesine bas, bilgisayarından bir resim seç (PNG, JPG, WEBP, BMP).
+• Resim ortadan kare kırpılır, altın çerçeveli yuvarlak portre olur. Karakter kartında, Karakterler listesinde ve haritadaki jetonda bu resim görünür.
+• Resim kampanya dosyasının ([b].frp[/b]) içine kaydedilir; orijinal dosyayı silsen ya da kampanyayı başka bilgisayara taşısan da kaybolmaz.
+• [g]Fotoğrafı Kaldır[/g]: çizilmiş portreye geri döner. Fotoğraf varken [g]Rastgele Görünüm[/g] fotoğrafı silmez.
+• Kahraman, NPC ve yaratıkların hepsine fotoğraf eklenebilir.
 
 [h]Karakter kartının sekmeleri[/h]
 [b]Kimlik[/b]

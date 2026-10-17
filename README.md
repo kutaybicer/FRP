@@ -58,6 +58,10 @@ Sağ üstteki **Info** düğmesi (ya da **F1**) her şeyin nasıl yapıldığın
 - **Koy**'a basınca karakter fareye yapışır; sol tık yerleştirir, **sağ tık veya Esc iptal eder**. Listedeki **Kaldır** düğmesi jetonu haritadan kaldırır (karakter silinmez). **Konuma Git** ise karakterin bulunduğu haritaya girer ve kamerayı jetona götürür; bu harita şehrin içindeki bir meyhane gibi iç içe bir harita da olabilir.
 - Jetona tıklayınca sağ panelde hasar/iyileştirme düğmeleri ve hızlı istatistikler görünür. **Karakterler** sekmesi bütün kadroyu ve her karakterin hangi haritada olduğunu listeler.
 
+## Karakter fotoğrafı
+- Karakter kartında **Fotoğraf Ekle...** ile bilgisayardan bir resim seçilir (PNG, JPG, WEBP, BMP). Resim ortadan kare kırpılır ve 512×512 PNG olarak kampanya dosyasına gömülür.
+- Karakter kartında, listede ve harita jetonunda altın çerçeveli yuvarlak içinde görünür. **Fotoğrafı Kaldır** çizilmiş portreye döner.
+
 ## Envanter
 - Karakter kartındaki **Envanter** sekmesinde 8 kuşanma yuvası var: Silah 1, Silah 2, Kask, Omuzluk, Gövde Zırhı, Eldiven, Bacak Zırhı, Ayakkabı. Ayrıca sınırsız bir **çanta** var (yedek eşyalar, iksirler, parşömenler...).
 - Bütün eşyalar **tek tiptir** ve her şeyi düzenlenebilir: ad, tür (şablon), ikon, nadirlik (Sıradan → Efsanevi), adet, renk ve serbest **özellik metni** (hasar, büyü, açıklama... ne yazarsan).

@@ -8,6 +8,7 @@ var name := "Yeni Kampanya"
 var maps: Dictionary = {}   # id -> MapData
 var root_id := ""
 var characters: Dictionary = {}   # id -> karakter sözlüğü (Lore.new_character / new_creature)
+var photos: Dictionary = {}       # fotoğraf id -> PNG baytları (karakter görünümünde look["photo"] = id)
 
 
 static func make_id() -> String:
@@ -98,7 +99,13 @@ func to_dict() -> Dictionary:
 	var md := {}
 	for k in maps:
 		md[k] = maps[k].to_dict()
-	return {"version": FILE_VERSION, "name": name, "root_id": root_id, "maps": md, "characters": characters.duplicate(true)}
+	# sadece kullanılan fotoğraflar kaydedilir
+	var used := {}
+	for ch in characters.values():
+		var pid := str(ch.get("look", {}).get("photo", ""))
+		if pid != "" and photos.has(pid):
+			used[pid] = photos[pid]
+	return {"version": FILE_VERSION, "name": name, "root_id": root_id, "maps": md, "characters": characters.duplicate(true), "photos": used}
 
 
 func save_to(path: String) -> Error:
@@ -126,6 +133,9 @@ static func load_from(path: String) -> Campaign:
 		m.from_dict(data["maps"][k])
 		c.maps[m.id] = m
 	c.characters = (data.get("characters", {}) as Dictionary).duplicate(true)
+	var ph = data.get("photos", {})
+	if typeof(ph) == TYPE_DICTIONARY:
+		c.photos = ph
 	if not c.maps.has(c.root_id) and not c.maps.is_empty():
 		c.root_id = c.maps.keys()[0]
 	return c

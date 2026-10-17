@@ -466,6 +466,8 @@ func _rebuild_region_colors() -> void:
 		_region_colors[rid] = reg["color"]
 		if rid > 0 and rid < 256:
 			_region_pal_img.set_pixel(rid, 0, reg["color"])
+	# renk tablosunu ekran kartına da gönder (dosya açınca / geri alınca renkler kaybolmasın)
+	_region_pal_tex.update(_region_pal_img)
 
 
 func _set_terrain_px(c: int, r: int) -> void:

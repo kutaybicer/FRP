@@ -261,6 +261,15 @@ func _apply_shader_params() -> void:
 	_region_mat.set_shader_parameter("region_pal", _region_pal_tex)
 
 
+## Sadece bölge renkleri değişti: palet dokusu ve çizimler güncellenir (hücreler yeniden işlenmez)
+func update_region_colors() -> void:
+	if map == null:
+		return
+	_rebuild_region_colors()
+	_region_pal_tex.update(_region_pal_img)
+	redraw()
+
+
 func rebuild_regions() -> void:
 	_rebuild_region_colors()
 	_region_img.set_data(map.cols, map.rows, false, Image.FORMAT_R8, map.region)

@@ -842,10 +842,12 @@ func _region_options(box: Control) -> void:
 	cp.custom_minimum_size.y = 28
 	cp.edit_alpha = false
 	cp.color_changed.connect(func(c: Color) -> void:
+		# sadece renk tablosu güncellenir (tüm harita yeniden hesaplanmaz): sürüklerken akıcı
 		reg["color"] = c
 		_mark_dirty()
-		view.rebuild_regions())
-	cp.popup_closed.connect(_rebuild_tool_options)
+		view.update_region_colors())
+	# paneli, renk seçicinin kendi sinyali bitmeden silmek çökmeye yol açıyordu: bir sonraki kareye ertele
+	cp.popup_closed.connect(_rebuild_tool_options.call_deferred)
 	box.add_child(cp)
 	box.add_child(_small("Notlar (yönetici, dinî inanç, ordu, ilişkiler...)"))
 	box.add_child(_text_edit(str(reg.get("notes", "")), func(t: String) -> void:
@@ -1399,14 +1401,7 @@ func _build_characters_tab() -> void:
 		_mark_dirty()
 		_refresh_characters()
 		editor.open(copy))
-	editor.delete_requested.connect(func(id: String) -> void:
-		_ask("'%s' silinsin mi? Haritalardaki jetonları da kaldırılır." % campaign.characters[id]["name"], func() -> void:
-			campaign.remove_character(id)
-			editor.hide()
-			view.clear_selection()
-			view.redraw()
-			_mark_dirty()
-			_refresh_characters()))
+	editor.delete_requested.connect(_delete_character)
 	bestiary = BestiaryWindow.new()
 	ui.add_child(bestiary)
 	bestiary.picked.connect(func(species: String) -> void:
@@ -1415,6 +1410,23 @@ func _build_characters_tab() -> void:
 		_mark_dirty()
 		_refresh_characters()
 		_start_place(id))
+
+
+## Kahraman, NPC ya da yaratık: onaydan sonra kampanyadan ve tüm haritalardan silinir
+func _delete_character(id: String) -> void:
+	if not campaign.characters.has(id):
+		return
+	_ask("'%s' silinsin mi? Haritalardaki jetonları da kaldırılır." % campaign.characters[id]["name"], func() -> void:
+		if view.token_char == id:
+			view.cancel_placement()
+		campaign.remove_character(id)
+		if editor.visible and editor.ch.get("id", "") == id:
+			editor.hide()
+		view.clear_selection()
+		view.redraw()
+		_mark_dirty()
+		_refresh_characters()
+		_refresh_inspector())
 
 
 ## Haritanın tam yolu: "Dünya Haritası > Başkent > Sarhoş Ejder Meyhanesi"
@@ -1596,6 +1608,9 @@ func _do_refresh_characters() -> void:
 			var rb := _btn("Kaldır", func() -> void: _remove_from_map(cid), "Bu karakterin jetonunu haritadan kaldır (karakter silinmez)")
 			rb.add_theme_color_override("font_color", Color("ff8a7a"))
 			bcol.add_child(rb)
+		var db := _btn("Sil", func() -> void: _delete_character(cid), "Karakteri / yaratığı / NPC'yi kampanyadan tamamen sil")
+		db.add_theme_color_override("font_color", Color("ff5a4a"))
+		bcol.add_child(db)
 	if shown == 0:
 		_hint(char_list, "Henüz karakter yok. Yukarıdaki düğmelerle kahraman, NPC ya da bestiyerden yaratık ekle.")
 
@@ -1884,8 +1899,9 @@ func _who_name() -> String:
 
 
 func _roll_die(sides: int) -> void:
-	var n := int(dice_count.value)
-	var m := int(dice_mod.value)
+	# kutuya yazılıp henüz Enter'a basılmamış sayıyı da hemen kullan
+	var n := _spin_now(dice_count)
+	var m := _spin_now(dice_mod)
 	var expr := "%dd%d" % [n, sides]
 	if m != 0:
 		expr += ("+%d" % m) if m > 0 else str(m)
@@ -2011,6 +2027,16 @@ func _btn(text: String, cb: Callable, tip := "") -> Button:
 	b.focus_mode = Control.FOCUS_NONE
 	b.pressed.connect(cb)
 	return b
+
+
+## SpinBox'ın o an kutuda yazan değeri (Enter'a basılmasa da). Geçersizse mevcut değer.
+func _spin_now(sb: SpinBox) -> int:
+	var t := sb.get_line_edit().text.strip_edges().replace("+", "")
+	if t.is_valid_int():
+		var v := clampi(t.to_int(), int(sb.min_value), int(sb.max_value))
+		sb.set_value_no_signal(v)
+		return v
+	return int(sb.value)
 
 
 func _toggle(text: String, on: bool, cb: Callable, tip := "") -> Button:

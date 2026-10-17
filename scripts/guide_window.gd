@@ -13,6 +13,11 @@ var _shown: Array = []
 # [başlık, içerik (BBCode)] — [k]...[/k] kısayol, [g]...[/g] düğme/menü adı olarak renklenir
 var topics: Array = [
 	["Yenilikler (Son Güncellemeler)", """[h]Son eklenenler[/h]
+[b]Düzeltmeler[/b]
+• Karakterler listesinde her kahraman, NPC ve yaratığın yanında [g]Sil[/g] düğmesi var (onay sorar; haritalardaki jetonları da kalkar).
+• Zar tepsisinde [g]Bonus[/g] ve [g]Adet[/g] kutusuna sayıyı yazar yazmaz geçerli olur; Enter'a basmak ya da tepsiyi kapatıp açmak gerekmez.
+• Krallık rengini değiştirirken takılma ve çökme giderildi.
+
 [b]Taşıma Modu ([k]K[/k])[/b]
 • Semboller, nehirler, yollar ve yazılar artık yanlışlıkla tıklanınca yerinden oynamaz. Tıklayınca sadece seçilirler; sürüklersen harita kayar.
 • Bir şeyi taşımak için sol paneldeki [g]Taşıma Modu[/g] düğmesine bas ya da [k]K[/k] tuşuna bas, sonra sürükle. İşin bitince tekrar kapat.

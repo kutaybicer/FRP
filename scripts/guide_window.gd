@@ -38,7 +38,7 @@ Bu uygulamayla oyun dünyanı çizebilir; şehirler, zindanlar ve iç içe harit
 	["Yeni Harita ve Anakara Çizmek", """[h]Sıfırdan bir dünya oluşturmak[/h]
 1. Üst çubukta [g]Yeni[/g]'ye tıkla.
 2. [g]Nasıl başlayalım?[/g] listesinden birini seç:
-   • [b]Rastgele kıta[/b]: dağları, ormanları, nehirleri hazır bir kıta üretir.
+   • [b]Rastgele kıta[/b]: dağları, ormanları, nehirleri hazır bir kıta üretir. Araziye uygun [b]başkent, şehirler, kasabalar, köyler, limanlar (kıyıda), kaleler ve karakollar[/b] da konur. İçleri boştur: tıklayınca [g]Kendim Çizeceğim[/g] ya da [g]Otomatik Oluştur[/g] seçersin.
    • [b]Boş okyanus — anakarayı ben çizeceğim[/b]: her yer deniz; kıtanı sen çizersin.
    • [b]Boş kara[/b]: her yer çayır (bölge veya şehir haritası için ideal).
    • [b]Boş parşömen[/b]: eskiz kağıdı.
@@ -209,6 +209,11 @@ Bu uygulamayla oyun dünyanı çizebilir; şehirler, zindanlar ve iç içe harit
 
 [h]Jetonu kaldırmak[/h]
 • [g]Karakterler[/g] listesinde [g]Kaldır[/g] (karakter silinmez, sadece haritadan kalkar).
+
+[h]Karakteri bulmak: Konuma Git[/h]
+• [g]Karakterler[/g] listesinde haritada olan her karakterin yanında [g]Konuma Git[/g] düğmesi vardır. Basınca karakterin bulunduğu haritaya girilir, kamera jetona gider ve jeton seçilir.
+• İç içe haritalar dahildir: karakter Dünya > Başkent > Sarhoş Ejder Meyhanesi'ndeyse doğrudan meyhaneye gidersin. Listede de tam yol yazar.
+• Birden çok kopyası olan yaratıklarda her basışta sıradaki kopyaya gider.
 • Ya da jetonu seçip [k]Delete[/k] / [g]Jetonu Haritadan Kaldır[/g].
 • Listede [g]Konum[/g] satırı karakterin hangi haritada olduğunu gösterir; filtreden [g]Bu haritada[/g] seçerek sadece buradakileri listeleyebilirsin."""],
 

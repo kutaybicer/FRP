@@ -29,7 +29,7 @@ Sağ üstteki **Info** düğmesi (ya da **F1**) her şeyin nasıl yapıldığın
 | `scripts/dice.gd`, `dice_overlay.gd`, `die_button.gd` | Zar ifadeleri, zar tepsisi ve atma animasyonu |
 
 ## Sıfırdan harita / büyük haritalar
-- **Yeni** düğmesi bir pencere açar. Başlangıç tipini seç: *Rastgele kıta*, *Boş okyanus (anakarayı ben çizeceğim)*, *Boş kara* ya da *Boş parşömen*. Boyutu da buradan seçersin: Küçük 120×80'den Dev Kıta 900×620'ye kadar hazır boyutlar var, istersen en fazla 1000×1000 hücrelik özel boyut girebilirsin. Ölçek de ayarlanabilir (1 hücre = ? km).
+- **Yeni** düğmesi bir pencere açar. Başlangıç tipini seç: *Rastgele kıta*, *Boş okyanus (anakarayı ben çizeceğim)*, *Boş kara* ya da *Boş parşömen*. Boyutu da buradan seçersin: Küçük 120×80'den Dev Kıta 900×620'ye kadar hazır boyutlar var, istersen en fazla 1000×1000 hücrelik özel boyut girebilirsin. Ölçek de ayarlanabilir (1 hücre = ? km). Rastgele kıtaya araziye uygun başkent, şehir, kasaba, köy, liman ve kaleler de konur; içleri boştur, tıklayınca kendin çizer ya da otomatik oluşturursun.
 - Boş okyanusla başlayınca Arazi aracı (B) Çayır seçili açılır; anakarayı fırçayla çizersin. Fırça boyutu 40'a kadar çıkar ( `[` ve `]` tuşları). Kova Dolgu (G) kapalı alanları tek tıkla doldurur.
 - Var olan haritayı sıfırlamak için: sağ panel → **Haritayı Tamamen Temizle** (boş deniz) veya **Tümünü Seçili Araziyle Doldur**.
 - Haritayı sonradan büyütmek için: sağ panel → Boyut → **Uygula**. "Ortadan genişlet" seçiliyse harita her yönden eşit büyür ve semboller, yollar ve jetonlar yerinde kalır.
@@ -51,7 +51,7 @@ Sağ üstteki **Info** düğmesi (ya da **F1**) her şeyin nasıl yapıldığın
 - **Karakter kartı**: kimlik, görünüm (kafa, kulak, saç, sakal, boynuz, işaret, başlık, kıyafet, silah, kanat ve tüm renkler), yetenek puanları (4d6 zar ya da standart dizi, ırk bonusları, değiştiriciler), can, zırh sınıfı, hız, XP, altın ve notlar.
 - **Portreler** tamamen kodla çizilir. Shader ile boya dokusu, ışık ve gölge eklenir. Portreler bir kez çizilip önbelleğe alındığı için harita jetonları hızlıdır ve her yakınlaştırmada pürüzsüz görünür.
 - **Jetonlar** (Karakter aracı, C): Kahramanlar ve NPC'ler aynı anda tek bir haritada bulunur, yeniden yerleştirince taşınırlar. Yaratıklardan istediğin kadar koyabilirsin (Kurt 1, Kurt 2...); her jetonun kendi canı vardır. Jeton halkasının rengi tarafını gösterir (dost, tarafsız, düşman). Can çubuğu ve ölü işareti de var. Kahramanlar ilerledikçe savaş sisi açılır.
-- **Koy**'a basınca karakter fareye yapışır; sol tık yerleştirir, **sağ tık veya Esc iptal eder**. Listedeki **Kaldır** düğmesi jetonu haritadan kaldırır (karakter silinmez).
+- **Koy**'a basınca karakter fareye yapışır; sol tık yerleştirir, **sağ tık veya Esc iptal eder**. Listedeki **Kaldır** düğmesi jetonu haritadan kaldırır (karakter silinmez). **Konuma Git** ise karakterin bulunduğu haritaya girer ve kamerayı jetona götürür; bu harita şehrin içindeki bir meyhane gibi iç içe bir harita da olabilir.
 - Jetona tıklayınca sağ panelde hasar/iyileştirme düğmeleri ve hızlı istatistikler görünür. **Karakterler** sekmesi bütün kadroyu ve her karakterin hangi haritada olduğunu listeler.
 
 ## Envanter

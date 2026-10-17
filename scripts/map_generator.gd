@@ -6,7 +6,7 @@ const T := Defs.T
 
 
 ## Gürültü tabanlı kıta / bölge üretir. island=true ise kenarlar denize döner.
-static func generate_terrain(map: MapData, seed_value: int, island := true, add_rivers := true, add_symbols := true) -> void:
+static func generate_terrain(map: MapData, seed_value: int, island := true, add_rivers := true, add_symbols := true, add_settlements := true) -> void:
 	var elev := FastNoiseLite.new()
 	elev.seed = seed_value
 	elev.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
@@ -38,6 +38,8 @@ static func generate_terrain(map: MapData, seed_value: int, island := true, add_
 	rng.seed = seed_value
 	if add_rivers:
 		_rivers(map, heights, rng)
+	if add_settlements:
+		_settlements(map, rng)
 	if add_symbols:
 		_nature_symbols(map, rng)
 
@@ -172,8 +174,125 @@ static func _flow_field(map: MapData, heights: PackedFloat32Array, rng: RandomNu
 	return flow
 
 
+## Araziye uygun yerleşimler: başkent, şehirler, kasabalar, köyler, limanlar, kaleler.
+## Sadece semboller konur; içleri boştur (tıklayınca "kendim çizeceğim / otomatik" seçilir).
+static func _settlements(map: MapData, rng: RandomNumberGenerator) -> void:
+	var W := map.cols
+	var H := map.rows
+	# nehir hücreleri (yakınında yerleşim olur)
+	var river := PackedByteArray()
+	river.resize(W * H)
+	for p in map.paths:
+		if p["type"] != "river":
+			continue
+		for pt: Vector2 in p["points"]:
+			var c := int(pt.x / Defs.CELL)
+			var r := int(pt.y / Defs.CELL)
+			for dy in range(-2, 3):
+				for dx in range(-2, 3):
+					if map.in_bounds(c + dx, r + dy):
+						river[(r + dy) * W + c + dx] = 1
+	var land := 0
+	for k in W * H:
+		if Defs.water_lookup[map.terrain[k]] == 0:
+			land += 1
+	if land < 200:
+		return
+	var sea_near := func(c: int, r: int, rad: int) -> bool:
+		for dy in range(-rad, rad + 1):
+			for dx in range(-rad, rad + 1):
+				if map.in_bounds(c + dx, r + dy) and map.terrain[map.idx(c + dx, r + dy)] in [T.SEA, T.DEEP]:
+					return true
+		return false
+	var score := func(c: int, r: int) -> float:
+		var t := map.terrain[r * W + c]
+		var s := 0.0
+		match t:
+			T.GRASS: s = 1.0
+			T.PLAINS: s = 0.9
+			T.FOREST: s = 0.45
+			T.HILLS: s = 0.5
+			T.DESERT: s = 0.25
+			T.SAND: s = 0.2
+			_: return -1.0
+		if river[r * W + c] == 1:
+			s += 0.6
+		return s + rng.randf() * 0.35
+	# aday hücreler
+	var cands: Array = []
+	for i in mini(land * 2, 30000):
+		var c := rng.randi_range(2, W - 3)
+		var r := rng.randi_range(2, H - 3)
+		var sc: float = score.call(c, r)
+		if sc > 0:
+			cands.append([sc, c, r])
+	cands.sort_custom(func(a, b): return a[0] > b[0])
+	var placed: Array = []   # [Vector2 hücre, aralık]
+	for s in map.symbols:
+		if str(s["type"]) in Defs.SETTLEMENTS or str(s["type"]) in ["castle", "fort"]:
+			placed.append([s["pos"] / Defs.CELL, 8.0])
+	var kk := sqrt(land / 4000.0)
+	var plan := [
+		["capital", 1, 18.0, 1.5],
+		["city", clampi(int(land / 5000.0), 1, 8), 16.0, 1.25],
+		["port", clampi(int(land / 3500.0), 1, 10), 12.0, 1.1],
+		["town", clampi(int(land / 2200.0), 2, 16), 11.0, 1.05],
+		["castle", clampi(int(land / 6000.0), 1, 6), 12.0, 1.05],
+		["fort", clampi(int(land / 7000.0), 0, 6), 10.0, 0.95],
+		["village", clampi(int(land / 1000.0), 3, 40), 7.0, 0.85],
+	]
+	var center := Vector2(W, H) * 0.5
+	for entry in plan:
+		var type: String = entry[0]
+		var count: int = entry[1]
+		var gap: float = entry[2] * clampf(kk, 0.7, 1.6)
+		var list := cands
+		if type == "capital":
+			# merkeze yakın, verimli bir yer
+			list = cands.slice(0, maxi(cands.size() / 6, 1))
+			list.sort_custom(func(a, b): return Vector2(a[1], a[2]).distance_to(center) < Vector2(b[1], b[2]).distance_to(center))
+		elif type in ["castle", "fort"]:
+			list = cands.filter(func(a): return map.terrain[a[2] * W + a[1]] in [T.HILLS, T.PLAINS, T.GRASS])
+			list.shuffle()
+		var n := 0
+		for a in list:
+			if n >= count:
+				break
+			var c: int = a[1]
+			var r: int = a[2]
+			var t := map.terrain[r * W + c]
+			if type == "port":
+				if not sea_near.call(c, r, 2):
+					continue
+			elif t == T.SAND or (type in ["capital", "city"] and t == T.DESERT):
+				continue
+			var p := Vector2(c + 0.5, r + 0.5)
+			var ok := true
+			for q in placed:
+				if q[0].distance_to(p) < maxf(gap, q[1]) * 0.85:
+					ok = false
+					break
+			if not ok:
+				continue
+			placed.append([p, gap])
+			var nm := Defs.random_name()
+			if type == "castle":
+				nm += " Kalesi"
+			elif type == "fort":
+				nm += " Karakolu"
+			map.symbols.append({"type": type, "pos": p * Defs.CELL, "name": nm, "notes": "", "size": entry[3], "link": ""})
+			n += 1
+
+
 static func _nature_symbols(map: MapData, rng: RandomNumberGenerator) -> void:
 	var placed := {}
+	# yerleşimlerin üstüne dağ / orman sembolü binmesin
+	for s in map.symbols:
+		var sp: Vector2 = s["pos"]
+		var key0 := Vector2i(floori(sp.x / 128.0), floori(sp.y / 128.0))
+		if not placed.has(key0):
+			placed[key0] = []
+		placed[key0].append(sp)
 	for i in maxi(2500, map.cols * map.rows / 4):
 		var c := rng.randi_range(1, map.cols - 2)
 		var r := rng.randi_range(1, map.rows - 2)

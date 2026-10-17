@@ -1091,12 +1091,19 @@ func _terrain_gen(box: VBoxContainer) -> void:
 	var island := _check("Kıta / ada (kenarlar deniz)", current.kind == Defs.Kind.WORLD)
 	var rivers := _check("Nehirler ekle", true)
 	var nature := _check("Dağ / orman sembolleri ekle", true)
-	for c in [island, rivers, nature]:
+	var has_towns := current.symbols.any(func(s): return str(s["type"]) in Defs.SETTLEMENTS)
+	var towns := _check("Şehir / köy / liman / kale ekle", not has_towns)
+	towns.tooltip_text = "Araziye uygun yerleşimler konur (içleri boş; tıklayınca kendin çizer ya da otomatik oluşturursun)"
+	for c in [island, rivers, nature, towns]:
 		box.add_child(c)
 	box.add_child(_btn("Araziyi Üret", func() -> void:
-		_ask("Arazi ve bölge boyaları yeniden oluşturulacak (semboller, yollar ve yazılar korunur). Devam?", func() -> void:
+		_ask("Arazi ve bölge boyaları yeniden oluşturulacak. Eski otomatik nehirler ve isimsiz dağ / orman sembolleri silinir; senin koyduğun semboller, yollar ve yazılar korunur. Devam?", func() -> void:
 			view.record()
-			MapGenerator.generate_terrain(current, _gen_seed, island.button_pressed, rivers.button_pressed, nature.button_pressed)
+			if rivers.button_pressed:
+				current.paths = current.paths.filter(func(p): return p["type"] != "river")
+			if nature.button_pressed:
+				current.symbols = current.symbols.filter(func(s): return not (str(s["type"]) in MapView.NATURE and str(s.get("name", "")) == "" and str(s.get("link", "")) == ""))
+			MapGenerator.generate_terrain(current, _gen_seed, island.button_pressed, rivers.button_pressed, nature.button_pressed, towns.button_pressed)
 			view.rebuild_all()
 			_set_tool(T.SELECT)
 			_refresh_inspector())))
@@ -1384,6 +1391,47 @@ func _build_characters_tab() -> void:
 		_start_place(id))
 
 
+## Haritanın tam yolu: "Dünya Haritası > Başkent > Sarhoş Ejder Meyhanesi"
+func _map_path(m: MapData) -> String:
+	var parts: Array = []
+	var cur: MapData = m
+	var guard := 0
+	while cur != null and guard < 32:
+		parts.push_front(cur.name)
+		cur = campaign.maps.get(cur.parent_id)
+		guard += 1
+	return " > ".join(PackedStringArray(parts))
+
+
+var _goto_index := 0
+
+## Karakterin jetonunun olduğu haritaya girer (iç içe haritalar dahil), kamerayı jetona götürür ve seçer.
+## Yaratık gibi birden çok kopyası olanlarda her basışta sıradaki kopyaya gider.
+func _goto_character(id: String) -> void:
+	var spots: Array = []   # [harita, jeton]
+	for m in campaign.locations_of(id):
+		for t in m.tokens:
+			if t.get("char", "") == id:
+				spots.append([m, t])
+	if spots.is_empty():
+		_toast("Bu karakter hiçbir haritada değil.")
+		return
+	_goto_index = (_goto_index + 1) % spots.size() if spots.size() > 1 else 0
+	var m: MapData = spots[_goto_index][0]
+	var tok: Dictionary = spots[_goto_index][1]
+	if view.tool == T.TOKEN:
+		view.cancel_placement()
+	if current != m:
+		enter_map(m.id)
+	cam.position = tok["pos"]
+	cam.zoom = Vector2.ONE * maxf(cam.zoom.x, 1.2)
+	view.select(tok, "token")
+	_refresh_inspector()
+	var ch: Dictionary = campaign.characters.get(id, {})
+	var extra := "  (%d/%d)" % [_goto_index + 1, spots.size()] if spots.size() > 1 else ""
+	_toast("%s → %s%s" % [ch.get("name", ""), _map_path(m), extra])
+
+
 ## Jetonları kaldırır: önce açık haritadan; burada yoksa bulunduğu tüm haritalardan
 func _remove_from_map(id: String) -> void:
 	if view.remove_tokens_of(id):
@@ -1507,13 +1555,18 @@ func _do_refresh_characters() -> void:
 		if not locs.is_empty():
 			var names := []
 			for m in locs:
-				names.append(m.name)
-			v.add_child(_small("Konum: " + ", ".join(names)))
+				names.append(_map_path(m))
+			var ll := _small("Konum: " + ", ".join(names))
+			ll.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			ll.custom_minimum_size.x = 120
+			v.add_child(ll)
 		var bcol := VBoxContainer.new()
 		bcol.add_theme_constant_override("separation", 2)
 		row.add_child(bcol)
 		bcol.add_child(_btn("Koy", func() -> void: _start_place(cid), "Haritaya tıklayarak yerleştir (sağ tık / Esc: iptal)"))
 		if not locs.is_empty():
+			bcol.add_child(_btn("Konuma Git", func() -> void: _goto_character(cid),
+					"Karakterin bulunduğu haritaya gir ve kamerayı ona götür (şehir, meyhane gibi iç haritalar dahil)"))
 			var rb := _btn("Kaldır", func() -> void: _remove_from_map(cid), "Bu karakterin jetonunu haritadan kaldır (karakter silinmez)")
 			rb.add_theme_color_override("font_color", Color("ff8a7a"))
 			bcol.add_child(rb)

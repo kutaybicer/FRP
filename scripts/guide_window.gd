@@ -12,6 +12,37 @@ var _shown: Array = []
 
 # [başlık, içerik (BBCode)] — [k]...[/k] kısayol, [g]...[/g] düğme/menü adı olarak renklenir
 var topics: Array = [
+	["Yenilikler (Son Güncellemeler)", """[h]Son eklenenler[/h]
+[b]Taşıma Modu ([k]K[/k])[/b]
+• Semboller, nehirler, yollar ve yazılar artık yanlışlıkla tıklanınca yerinden oynamaz. Tıklayınca sadece seçilirler; sürüklersen harita kayar.
+• Bir şeyi taşımak için sol paneldeki [g]Taşıma Modu[/g] düğmesine bas ya da [k]K[/k] tuşuna bas, sonra sürükle. İşin bitince tekrar kapat.
+• Karakter / yaratık jetonları ve grup jetonu her zaman sürüklenebilir (oyun sırasında hızlı olsun diye).
+
+[b]Yerlerin içi: kendin çiz ya da otomatik oluştur[/b]
+• İçi olmayan bir yere girince harita kendiliğinden üretilmez; sağ panelde [g]Kendim Çizeceğim[/g] ve [g]Otomatik Oluştur[/g] seçenekleri çıkar.
+• Otomatik oluşturma türe uygundur: şehirde sokaklar ve dükkanlar, meyhanede tezgâh ve masalar, ormanda açıklıklar ve patikalar...
+• Katman kuralı: Dünya → Şehir → Bina. Orman, dağ, zindan ve bina içleri son katmandır. Ayrıntılar: [g]Semboller ve İç İçe Haritalar[/g].
+• Beğenmediğin iç haritayı sağ panelden [g]Yeniden Oluştur[/g] ile baştan üretebilirsin.
+
+[b]Rastgele haritada yerleşimler[/b]
+• Rastgele kıtaya araziye uygun başkent, şehirler, kasabalar, köyler, limanlar (kıyıda), kaleler ve karakollar konur. İçleri boştur.
+
+[b]Konuma Git[/b]
+• Karakterler listesinde [g]Konuma Git[/g]: karakter hangi haritadaysa (bir şehrin içindeki meyhane bile olsa) oraya gider, kamerayı jetona götürür.
+
+[b]Nehirler[/b]
+• Rastgele nehirler artık düğüm yapmaz, birbirini kesmez; buluşan kollar ana nehre katılır.
+
+[b]Esc her yerde[/b]
+• Sembol, fırça, yol, sis, jeton... hangi araçtaysan [k]Esc[/k] seni Seç aracına döndürür; jeton yerleştirmeyi iptal eder.
+
+[b]Görünüm ve hız[/b]
+• Semboller her yakınlaştırmada görünür; çok uzaktayken sade çizilir ve isimleri gizlenir.
+• Ağaç sembollerinin gövdeleri belirgin; dağ sembolleri daha seyrek.
+• HD görünümde ışık-gölge (dağ kabartması, binaların ve duvarların gölgesi) ve araziler arası yumuşak geçişler.
+• Üst çubukta [g]Kalite[/g] (Yüksek / Dengeli / Hızlı). Takılma olursa [b]Hızlı[/b]'yı seç.
+• Bina içleri için [g]Mobilya[/g] sembolleri: masa, sandalye, yatak, fıçı, tezgâh, ocak, raf, halı, taht..."""],
+
 	["Başlarken", """[h]FRP Harita Ustası'na hoş geldin![/h]
 Bu uygulamayla oyun dünyanı çizebilir; şehirler, zindanlar ve iç içe haritalar oluşturabilir, karakterlerini ve yaratıklarını yönetebilir, oyun sırasında zar atabilirsin.
 
@@ -28,7 +59,11 @@ Bu uygulamayla oyun dünyanı çizebilir; şehirler, zindanlar ve iç içe harit
 • Uygulama 90 saniyede bir ve kapanırken [b]otomatik kaydeder[/b]; bir sonraki açılışta kaldığın yerden devam eder. Temiz başlamak için [g]Yeni[/g]'ye bas.
 
 [b]Kamera[/b]
-• [k]Sağ tık sürükle[/k] veya [k]orta tuş sürükle[/k]: haritayı kaydır. Seç aracında boş bir yeri [k]sol tıkla sürüklemek[/k] de kaydırır.
+• [k]Sağ tık sürükle[/k] veya [k]orta tuş sürükle[/k]: haritayı kaydır. Seç aracında [k]sol tıkla sürüklemek[/k] de kaydırır (Taşıma Modu kapalıyken nesnelerin üstünden sürüklesen bile).
+
+[b]Taşıma Modu ([k]K[/k])[/b]
+• Nesneler yanlışlıkla yerinden oynamasın diye taşıma kapalı başlar: semboller, nehirler, yollar ve yazılar tıklanınca sadece seçilir.
+• Taşımak için sol paneldeki [g]Taşıma Modu[/g] düğmesini ya da [k]K[/k] tuşunu aç, sürükle, sonra kapat. Jetonlar her zaman sürüklenir.
 • [k]Fare tekerleği[/k]: imlecin olduğu yere yakınlaş / uzaklaş.
 • [k]Home[/k] veya [g]Sığdır[/g]: haritanın tamamını ekrana sığdır.
 
@@ -99,6 +134,7 @@ Bu uygulamayla oyun dünyanı çizebilir; şehirler, zindanlar ve iç içe harit
 
 [b]Çizgiyi düzenlemek[/b]
 • [g]Seç[/g] aracı ([k]V[/k]) ile çizgiye tıkla. Sağ panelden [b]ad[/b] (ör. "Gümüş Nehir"), [b]tip[/b] ve [b]kalınlık[/b] değiştirilir.
+• Taşımak için önce [g]Taşıma Modu[/g]'nu aç ([k]K[/k]).
 • Sürükleyerek tüm çizgiyi taşıyabilirsin. [k]Delete[/k] siler."""],
 
 	["Semboller ve İç İçe Haritalar", """[h]Sembol aracı ([k]S[/k])[/h]
@@ -143,7 +179,7 @@ Bu uygulamayla oyun dünyanı çizebilir; şehirler, zindanlar ve iç içe harit
 	["Yazılar ve İsimler", """[h]Yazı aracı ([k]T[/k])[/h]
 • Haritaya tıkla, yeni bir yazı oluşur ve seçili gelir. Sağ panelden [b]metin[/b], [b]boyut[/b], [b]yazı tipi[/b] (Başlık: Cinzel / Metin: Garamond) ve [b]renk[/b] ayarlanır.
 • Deniz, okyanus, dağ sırası, çöl isimleri için idealdir.
-• [g]Seç[/g] aracıyla sürükleyip taşıyabilirsin.
+• Taşımak için [g]Taşıma Modu[/g]'nu aç ([k]K[/k]), sonra [g]Seç[/g] aracıyla sürükle.
 
 [b]İsimleri gizlemek[/b]
 • Üst çubukta [g]İsimler[/g] düğmesi sembol, yol ve jeton isimlerini açar / kapatır."""],
@@ -279,7 +315,8 @@ Bu uygulamayla oyun dünyanı çizebilir; şehirler, zindanlar ve iç içe harit
 
 	["Kısayollar", """[h]Klavye kısayolları[/h]
 [table=2]
-[cell][k]V[/k]  [/cell][cell]Seç / Taşı[/cell]
+[cell][k]V[/k]  [/cell][cell]Seç[/cell]
+[cell][k]K[/k][/cell][cell]Taşıma Modu aç / kapa (sembol, yol, yazı taşımak için)[/cell]
 [cell][k]B[/k][/cell][cell]Arazi fırçası[/cell]
 [cell][k]G[/k][/cell][cell]Kova dolgu[/cell]
 [cell][k]R[/k][/cell][cell]Krallık / Bölge[/cell]

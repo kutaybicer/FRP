@@ -119,6 +119,11 @@ var _drag_recorded := false
 var _drag_last := Vector2.ZERO
 var _drag_party := false
 var _left_pan := false
+## Taşıma modu: kapalıyken semboller, nehirler, yollar ve yazılar tıklanınca sadece seçilir,
+## yanlışlıkla sürüklenip yerinden oynamaz (sürükleyince harita kayar). Jetonlar her zaman taşınır.
+var move_mode := false
+signal move_blocked
+var _blocked_drag := 0.0
 var _measure_a := Vector2.INF
 var _measure_b := Vector2.INF
 var _measuring := false
@@ -752,6 +757,7 @@ func _on_release() -> void:
 			_recompute_coast()
 	_drag_obj = false
 	_left_pan = false
+	_blocked_drag = 0.0
 	if _drag_party:
 		_drag_party = false
 		_reveal_around_party()
@@ -770,6 +776,11 @@ func _on_motion(event: InputEventMouseMotion) -> void:
 		_measure_b = p
 	elif _left_pan:
 		cam.pan_screen(event.relative)
+		if _blocked_drag > 0.0:
+			_blocked_drag += event.relative.length()
+			if _blocked_drag > 12.0:
+				_blocked_drag = 0.0
+				move_blocked.emit()
 	elif _drag_party:
 		map.party_pos = p
 		map_changed.emit()
@@ -843,6 +854,11 @@ func _select_press(p: Vector2, double: bool) -> void:
 
 func _grab(obj: Dictionary, kind: String, p: Vector2) -> void:
 	select(obj, kind)
+	if kind != "token" and not move_mode:
+		_drag_obj = false
+		_left_pan = true
+		_blocked_drag = 0.0001
+		return
 	_drag_obj = true
 	_drag_recorded = false
 	_drag_last = p

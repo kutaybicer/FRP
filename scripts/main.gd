@@ -33,6 +33,7 @@ var dice_history: VBoxContainer
 var dice_overlay: DiceOverlay
 var _roll_log: Array = []
 var new_dialog: ConfirmationDialog
+var move_btn: Button
 var guide: GuideWindow
 var nd_start: OptionButton
 var nd_size: OptionButton
@@ -60,7 +61,7 @@ var _toast_time := 0.0
 var _gen_seed := 0
 
 var tool_defs := [
-	{"tool": T.SELECT, "name": "Seç / Taşı", "key": KEY_V, "play": true},
+	{"tool": T.SELECT, "name": "Seç", "key": KEY_V, "play": true},
 	{"tool": T.TERRAIN, "name": "Arazi", "key": KEY_B},
 	{"tool": T.FILL, "name": "Kova Dolgu", "key": KEY_G},
 	{"tool": T.REGION, "name": "Krallık/Bölge", "key": KEY_R},
@@ -88,6 +89,8 @@ func _ready() -> void:
 	view.map_changed.connect(_mark_dirty)
 	view.hover_changed.connect(func(t: String) -> void: status_label.text = t)
 	view.token_placed.connect(_on_token_placed)
+	view.move_blocked.connect(func() -> void:
+		_toast("Taşımak için Taşıma Modu'nu aç (sol panel ya da K tuşu)."))
 	view.placement_cancelled.connect(func() -> void:
 		_set_tool(T.SELECT)
 		_toast("Yerleştirme iptal edildi."))
@@ -388,7 +391,7 @@ func _escape() -> void:
 		view.cancel_placement()
 	elif view.tool != T.SELECT:
 		_set_tool(T.SELECT)
-		_toast("Araç bırakıldı (Seç / Taşı).")
+		_toast("Araç bırakıldı (Seç).")
 	else:
 		view.clear_selection()
 
@@ -415,6 +418,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		KEY_DELETE: view.delete_selected()
 		KEY_BACKSPACE: _go_up()
 		KEY_ESCAPE: _escape()
+		KEY_K: _set_move_mode(not view.move_mode)
 		KEY_HOME: _fit()
 		KEY_D: _toggle_dice_tray()
 		KEY_F1: guide.open()
@@ -432,6 +436,15 @@ func _unhandled_input(event: InputEvent) -> void:
 					break
 			return
 	get_viewport().set_input_as_handled()
+
+
+func _set_move_mode(on: bool) -> void:
+	view.move_mode = on
+	move_btn.set_pressed_no_signal(on)
+	move_btn.text = "Taşıma Modu (K): AÇIK" if on else "Taşıma Modu (K): Kapalı"
+	move_btn.add_theme_color_override("font_color", Color("ffd27a") if on else Color("c8bfae"))
+	move_btn.add_theme_color_override("font_pressed_color", Color("ffd27a"))
+	_toast("Taşıma modu açık: sürükleyerek taşı." if on else "Taşıma modu kapalı: nesneler yerinden oynamaz.")
 
 
 func _set_tool(t: int) -> void:
@@ -553,6 +566,9 @@ func _build_ui() -> void:
 	tool_grid = GridContainer.new()
 	tool_grid.columns = 2
 	lbox.add_child(tool_grid)
+	move_btn = _toggle("Taşıma Modu (K): Kapalı", false, func(on: bool) -> void: _set_move_mode(on),
+			"Açıkken semboller, nehirler, yollar ve yazılar sürüklenerek taşınır. Kapalıyken yanlışlıkla yerinden oynamaz.")
+	lbox.add_child(move_btn)
 	lbox.add_child(HSeparator.new())
 	tool_options = VBoxContainer.new()
 	lbox.add_child(tool_options)
@@ -692,7 +708,7 @@ func _rebuild_tool_options() -> void:
 			if view.play_mode:
 				_hint(box, "MASA MODU\n• Sembole tıkla: o yerin haritasına gir (şehir, zindan...)\n• Boş yeri sürükle: kaydır\n• Grup jetonunu sürükle: grubu taşı (sis varsa etrafı açılır)\n• Shift + sürükle: mesafe ölç\n• Backspace: üst haritaya dön")
 			else:
-				_hint(box, "• Tık: seç, sürükle: taşı\n• Çift tık (sembol): içine gir / yoksa sağdan oluştur\n• Delete: seçileni sil\n• Boş yeri sürükle veya sağ tık: kaydır\n• Tekerlek: yakınlaştır\n• Shift + sürükle: mesafe ölç")
+				_hint(box, "• Tık: seç (sürükleyince harita kayar)\n• Taşımak için: Taşıma Modu (K) aç, sonra sürükle\n• Çift tık (sembol): içine gir / yoksa sağdan oluştur\n• Delete: seçileni sil\n• Boş yeri sürükle veya sağ tık: kaydır\n• Tekerlek: yakınlaştır\n• Shift + sürükle: mesafe ölç")
 			hint_label.text = "Çift tık: sembole gir  •  Backspace: üst harita"
 		T.TERRAIN:
 			_brush_slider(box)

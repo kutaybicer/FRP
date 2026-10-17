@@ -45,6 +45,10 @@ Sağ üstteki **Info** düğmesi (ya da **F1**) her şeyin nasıl yapıldığın
 - Beğenmediğin iç haritayı, o haritaya girip sağ panelden **Yeniden Oluştur** ile baştan üretebilirsin.
 - `scripts/place_generator.gd`: tüm yer türleri için üreticiler.
 
+## Taşıma modu
+- Semboller, nehirler, yollar ve yazılar yanlışlıkla yerinden oynamasın diye taşıma kapalı başlar. Tıklayınca sadece seçilirler, sürükleyince harita kayar.
+- Taşımak için sol paneldeki **Taşıma Modu** düğmesini aç (ya da **K** tuşu), sürükle, sonra kapat. Karakter jetonları her zaman sürüklenebilir.
+
 ## Karakterler ve yaratıklar
 - **Kahramanlar ve NPC'ler** 26 ırk ve 17 sınıftan oluşturulabilir. İnsan, Yüksek/Orman/Kara Elf, Yarı-Elf, Cüce, Buçukluk, Gnom, Yarı-Ork, Ork, Goblin, Hobgoblin, Kobold, Şeytansoyu, Ejderdoğan, Göksoylu, Dağ Devi Soyu, Kedi/Kertenkele/Kuş/Tavşan Halkı, Minotor, Sentor, Orman Devi Soyu, Elementsoyu ve Deniz Halkı var. Savaşçı, Barbar, Paladin, Korucu, Hırsız, Büyücü, Sihirbaz, Ahitli, Rahip, Druid, Ozan, Keşiş ve Mucit sınıflarına ek olarak Köylü, Tüccar, Soylu ve Muhafız NPC sınıfları da var.
 - **Bestiyer**: 150'den fazla hayvan, kuş, deniz canlısı, böcek, ejderha, fantastik yaratık, canavar, ölümsüz, elemental ve insansı düşman. Her birinin can, zırh sınıfı, tehlike derecesi ve saldırıları hazır gelir.

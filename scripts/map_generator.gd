@@ -300,9 +300,9 @@ static func _nature_symbols(map: MapData, rng: RandomNumberGenerator) -> void:
 		var type := ""
 		var min_d := 0.0
 		# seyrek yerleşim: dağlık ve ormanlık alanlar sembolle dolup taşmasın
-		if (t == T.MOUNTAIN or t == T.SNOW) and rng.randf() < 0.45:
+		if (t == T.MOUNTAIN or t == T.SNOW) and rng.randf() < 0.12:
 			type = "mountain"
-			min_d = 80.0
+			min_d = 175.0
 		elif t == T.HILLS and rng.randf() < 0.08:
 			type = "hills"
 			min_d = 110.0

@@ -40,6 +40,7 @@ var terrains: Array = [
 	{"name": "Tarla", "color": Color("b9a659"), "water": false},
 ]
 var water_lookup := PackedByteArray()
+var height_lookup := PackedByteArray()   # arazi indeksi -> yükseklik baytı (rölyef dokusu için)
 # Shader doku stili (terrain.gdshader içindeki land_detail ile eşleşir)
 # 0 düz, 1 orman, 2 dağ/tepe, 3 kum, 4 kar, 5 taş döşeme, 6 ahşap, 7 duvar, 8 kaya boşluk, 9 bataklık, 10 lav, 11 çayır,
 # 12 çatı kiremidi, 13 tarla sıraları
@@ -48,6 +49,7 @@ var terrain_styles: Array = [0, 0, 0, 3, 11, 11, 1, 9, 3, 2, 2, 4, 10, 0, 5, 5, 
 var terrain_heights: Array = [-0.5, -0.3, -0.1, 0.02, 0.07, 0.05, 0.12, 0.02, 0.06, 0.32, 0.72, 0.92,
 		0.4, 0.05, 0.03, 0.0, 0.0, 0.55, 0.6, 0.0, 0.4, 0.4, 0.06]
 var terrain_palette: ImageTexture
+var noise_texture: ImageTexture   # shader'ların ortak gürültü dokusu (R tek katman, G fraktal)
 
 var font_title: Font   # bölge isimleri, harita yazıları (Cinzel)
 var font_text: Font    # sembol isimleri (EB Garamond)
@@ -161,6 +163,9 @@ const SYL_END := ["dor", "heim", "gard", "ia", "ion", "mar", "oth", "wyn", "ra",
 
 func _ready() -> void:
 	water_lookup.resize(256)
+	height_lookup.resize(256)
+	for i in terrains.size():
+		height_lookup[i] = int(clampf(float(terrain_heights[i]) * 0.5 + 0.5, 0.0, 1.0) * 255.0)
 	for i in terrains.size():
 		water_lookup[i] = 1 if terrains[i]["water"] else 0
 	var img := Image.create(256, 2, false, Image.FORMAT_RGBA8)
@@ -169,8 +174,38 @@ func _ready() -> void:
 		var hb := int(clampf(float(terrain_heights[i]) * 0.5 + 0.5, 0.0, 1.0) * 255.0)
 		img.set_pixel(i, 1, Color8(255 if terrains[i]["water"] else 0, terrain_styles[i], hb))
 	terrain_palette = ImageTexture.create_from_image(img)
+	noise_texture = _make_noise_texture()
 	font_title = _load_font("res://fonts/Cinzel.ttf", 700)
 	font_text = _load_font("res://fonts/EBGaramond.ttf", 600)
+
+
+## 256x256, kenarları birleşen gürültü dokusu. Bir kez üretilir, tüm haritalar paylaşır.
+func _make_noise_texture() -> ImageTexture:
+	var n1 := FastNoiseLite.new()
+	n1.seed = 7
+	n1.noise_type = FastNoiseLite.TYPE_VALUE_CUBIC
+	n1.frequency = 0.25
+	n1.fractal_type = FastNoiseLite.FRACTAL_NONE
+	var n2 := FastNoiseLite.new()
+	n2.seed = 19
+	n2.noise_type = FastNoiseLite.TYPE_VALUE_CUBIC
+	n2.frequency = 0.25
+	n2.fractal_type = FastNoiseLite.FRACTAL_FBM
+	n2.fractal_octaves = 4
+	var a := n1.get_seamless_image(256, 256, false, false, 0.1, true)
+	var b := n2.get_seamless_image(256, 256, false, false, 0.1, true)
+	a.convert(Image.FORMAT_L8)
+	b.convert(Image.FORMAT_L8)
+	var da := a.get_data()
+	var db := b.get_data()
+	var out := PackedByteArray()
+	out.resize(256 * 256 * 2)
+	for i in 256 * 256:
+		out[i * 2] = da[i]
+		out[i * 2 + 1] = db[i]
+	var img := Image.create_from_data(256, 256, false, Image.FORMAT_RG8, out)
+	img.generate_mipmaps()
+	return ImageTexture.create_from_image(img)
 
 
 ## MSDF font: yakınlaştırınca bulanıklaşmaz, kenar çizgisi de keskin kalır.

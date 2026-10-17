@@ -44,6 +44,17 @@ var hd := true:
 		if map and not v:
 			_recompute_coast()
 		redraw()
+## Arazi çizim çözünürlüğü (1 = tam, 0.5 = yarı). Düşükse arazi ve bölge katmanı küçük bir
+## ara görüntüye çizilip büyütülür: ekran kartı çok daha az iş yapar. Semboller ve yazılar hep tam keskinlikte.
+var terrain_scale := 0.75:
+	set(v):
+		terrain_scale = clampf(v, 0.3, 1.0)
+		_setup_lowres()
+var _lr_vp: SubViewport
+var _lr_cam: Camera2D
+var _lr_layer: CanvasLayer
+var _lr_rect: TextureRect
+
 ## Parşömen: eski harita görünümü (sepya, kağıt dokusu, kenar karartma)
 var parchment := false:
 	set(v):
@@ -79,6 +90,9 @@ var _sym_root: Node2D
 var _nature_root: Node2D
 var _labels_node: Node2D
 var _chunks := {}        # "n|x|y" veya "s|x|y" -> Node2D
+var _lod_root: Node2D     # uzaktan bakış: sade semboller, isimsiz (çok daha az çizim komutu)
+var _lod_chunks := {}
+var _far := false
 var _chunk_syms := {}    # aynı anahtar -> [semboller]
 var _top: Node2D
 var _font: Font        # arayüz ipuçları
@@ -94,6 +108,9 @@ var _stroke := false
 var _regions_dirty := false
 var _work := PackedByteArray()
 var _mask_data := PackedByteArray()
+var _height_data := PackedByteArray()   # hücre yükseklikleri: GPU doğrusal süzgeçle yumuşatır
+var _height_img: Image
+var _height_tex: ImageTexture
 var _coast_dirty := false
 var _last_cell := Vector2i(-9999, -9999)
 var _path_pts := PackedVector2Array()
@@ -131,6 +148,9 @@ func _ready() -> void:
 	add_child(_nature_root)
 	_sym_root = Node2D.new()
 	add_child(_sym_root)
+	_lod_root = Node2D.new()
+	_lod_root.visible = false
+	add_child(_lod_root)
 	_labels_node = Node2D.new()
 	add_child(_labels_node)
 	_labels_node.draw.connect(_draw_labels)
@@ -146,6 +166,7 @@ func _ready() -> void:
 	_top = Node2D.new()
 	add_child(_top)
 	_top.draw.connect(_draw_top)
+	_setup_lowres.call_deferred()
 
 
 func _make_sprite(filter: int) -> Sprite2D:
@@ -177,12 +198,19 @@ func rebuild_all() -> void:
 	_terrain_img = Image.create_from_data(map.cols, map.rows, false, Image.FORMAT_R8, map.terrain)
 	var mask := PackedByteArray()
 	mask.resize(n)
+	var hgt := PackedByteArray()
+	hgt.resize(n)
 	var wl := Defs.water_lookup
+	var hl := Defs.height_lookup
 	var t := map.terrain
 	for i in n:
 		mask[i] = 255 * wl[t[i]]
+		hgt[i] = hl[t[i]]
 	_mask_img = Image.create_from_data(map.cols, map.rows, false, Image.FORMAT_R8, mask)
 	_mask_data = mask
+	_height_data = hgt
+	_height_img = _smoothed_height()
+	_height_tex = ImageTexture.create_from_image(_height_img)
 	_rebuild_region_colors()
 	_region_img = Image.create_from_data(map.cols, map.rows, false, Image.FORMAT_R8, map.region)
 	_fog_img = Image.create_from_data(map.cols, map.rows, false, Image.FORMAT_R8, map.fog)
@@ -192,6 +220,8 @@ func rebuild_all() -> void:
 	_fog_tex = ImageTexture.create_from_image(_fog_img)
 	_terrain_sprite.texture = _terrain_tex
 	_region_sprite.texture = _region_tex
+	# hiç krallık yoksa bölge katmanını hiç çizme
+	_region_sprite.visible = not map.regions.is_empty()
 	_fog_sprite.texture = _fog_tex
 	if not hd:
 		_recompute_coast()
@@ -215,8 +245,10 @@ func _apply_shader_params() -> void:
 		mat.set_shader_parameter("terrain_idx", _terrain_tex)
 		mat.set_shader_parameter("water_mask", _mask_tex)
 		mat.set_shader_parameter("palette", Defs.terrain_palette)
+		mat.set_shader_parameter("noise_tex", Defs.noise_texture)
 		mat.set_shader_parameter("fancy", hd)
 	_terrain_mat.set_shader_parameter("parchment", parchment)
+	_terrain_mat.set_shader_parameter("height_tex", _height_tex)
 	# açık arazide biyomlar yumuşak karışır; şehir / bina / zindanda keskin kalır
 	_terrain_mat.set_shader_parameter("blend_biomes", warp >= 0.5)
 	_terrain_mat.set_shader_parameter("relief", 1.0 if warp >= 0.5 else 0.85)
@@ -229,8 +261,74 @@ func rebuild_regions() -> void:
 	_region_img.set_data(map.cols, map.rows, false, Image.FORMAT_R8, map.region)
 	_region_tex.update(_region_img)
 	_region_pal_tex.update(_region_pal_img)
+	_region_sprite.visible = not map.regions.is_empty()
 	_recompute_borders()
 	redraw()
+
+
+## Açık arazide (dünya, bölge, yerel alan) yükseklikler hafifçe bulanıklaştırılır: dağlar
+## hücre hücre mozaik yerine pürüzsüz yamaçlarla gölgelenir. Şehir / binada duvar gölgeleri keskin kalır.
+## (Küçült-büyüt C++ tarafında çalışır; çok büyük haritada bile milisaniyeler sürer.)
+func _smoothed_height() -> Image:
+	var img := Image.create_from_data(map.cols, map.rows, false, Image.FORMAT_R8, _height_data)
+	if map.kind in [Defs.Kind.WORLD, Defs.Kind.REGION, Defs.Kind.SITE] and map.cols > 8 and map.rows > 8:
+		img.resize(maxi(4, map.cols / 2), maxi(4, map.rows / 2), Image.INTERPOLATE_BILINEAR)
+		img.resize(map.cols, map.rows, Image.INTERPOLATE_CUBIC)
+	return img
+
+
+func _setup_lowres() -> void:
+	if _terrain_sprite == null or export_mode or not is_inside_tree():
+		return
+	var on := terrain_scale < 0.99
+	if on and _lr_vp == null:
+		_lr_vp = SubViewport.new()
+		_lr_vp.world_2d = get_viewport().world_2d
+		_lr_vp.canvas_cull_mask = 2
+		_lr_vp.disable_3d = true
+		_lr_vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+		add_child(_lr_vp)
+		_lr_cam = Camera2D.new()
+		_lr_vp.add_child(_lr_cam)
+		_lr_cam.make_current()
+		_lr_layer = CanvasLayer.new()
+		_lr_layer.layer = -1
+		add_child(_lr_layer)
+		_lr_rect = TextureRect.new()
+		_lr_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_lr_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		_lr_rect.stretch_mode = TextureRect.STRETCH_SCALE
+		_lr_rect.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+		_lr_rect.texture = _lr_vp.get_texture()
+		_lr_layer.add_child(_lr_rect)
+	var layer := 2 if on else 1
+	# Godot üst düğümlerin katmanına da bakar: ara görüntü sprite'lara ulaşabilsin
+	var p: Node = self
+	while p is CanvasItem:
+		(p as CanvasItem).set_visibility_layer_bit(1, true)
+		p = p.get_parent()
+	_terrain_sprite.visibility_layer = layer
+	_region_sprite.visibility_layer = layer
+	get_viewport().set_canvas_cull_mask_bit(1, not on)
+	if _lr_vp:
+		_lr_vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS if on else SubViewport.UPDATE_DISABLED
+		_lr_layer.visible = on
+	_sync_lowres()
+
+
+## Ara görüntünün kamerasını ana kamerayla eşle (aynı kadraj, düşük çözünürlük)
+func _sync_lowres() -> void:
+	if _lr_vp == null or not _lr_layer.visible:
+		return
+	var vs := get_viewport().get_visible_rect().size
+	var want := Vector2i(maxi(1, int(vs.x * terrain_scale)), maxi(1, int(vs.y * terrain_scale)))
+	if _lr_vp.size != want:
+		_lr_vp.size = want
+	_lr_rect.size = vs
+	var mc := get_viewport().get_camera_2d()
+	if mc:
+		_lr_cam.position = mc.get_screen_center_position()
+		_lr_cam.zoom = mc.zoom * (float(want.x) / vs.x)
 
 
 func update_fog_visibility() -> void:
@@ -246,8 +344,18 @@ func redraw() -> void:
 
 
 func _process(_delta: float) -> void:
-	# semboller her yakınlaştırma seviyesinde görünür
-	pass
+	_sync_lowres()
+	# semboller her yakınlaştırma seviyesinde görünür; çok uzaktayken okunamayan
+	# isimler ve ince ayrıntılar yerine sade çizim kullanılır (büyük haritada akıcılık)
+	if _lod_root == null:
+		return
+	var far := _zoom() * Defs.SYMBOL_BASE < 10.0
+	if far != _far:
+		_far = far
+		_nature_root.visible = not far
+		_sym_root.visible = not far
+		_lod_root.visible = far
+		_labels_node.queue_redraw()
 
 
 func _chunk_key(s: Dictionary) -> String:
@@ -270,13 +378,43 @@ func _rebuild_chunks() -> void:
 		if not _chunk_syms.has(k):
 			_chunks[k].queue_free()
 			_chunks.erase(k)
+			_lod_chunks[k].queue_free()
+			_lod_chunks.erase(k)
 	for k in _chunk_syms:
 		if not _chunks.has(k):
 			var n := Node2D.new()
 			(_nature_root if k.begins_with("n") else _sym_root).add_child(n)
 			n.draw.connect(_draw_chunk.bind(k, n))
 			_chunks[k] = n
+			var l := Node2D.new()
+			_lod_root.add_child(l)
+			l.draw.connect(_draw_chunk_lod.bind(k, l))
+			_lod_chunks[k] = l
 		_chunks[k].queue_redraw()
+		_lod_chunks[k].queue_redraw()
+
+
+## Uzaktan görünüm: doğa sembolleri birkaç basit şekille, diğerleri normal ama isimsiz
+func _draw_chunk_lod(k: String, ci: Node2D) -> void:
+	var ink := SymbolPainter.INK
+	for s in _chunk_syms.get(k, []):
+		var r := Defs.SYMBOL_BASE * float(s.get("size", 1.0))
+		var p: Vector2 = s["pos"]
+		match str(s["type"]):
+			"mountain":
+				var tri := PackedVector2Array([p + Vector2(-r * 0.9, r * 0.6), p + Vector2(0, -r * 0.8), p + Vector2(r * 0.9, r * 0.6)])
+				ci.draw_colored_polygon(tri, SymbolPainter.ROCK)
+				ci.draw_colored_polygon(PackedVector2Array([tri[1], tri[2], p + Vector2(0, r * 0.6)]), SymbolPainter.ROCK_D)
+				tri.append(tri[0])
+				ci.draw_polyline(tri, ink, 2.0)
+			"hills":
+				ci.draw_arc(p + Vector2(0, r * 0.5), r * 0.7, PI, TAU, 6, ink, 2.0)
+			"forest", "pine", "tree":
+				for o in [Vector2(-r * 0.4, r * 0.1), Vector2(r * 0.4, r * 0.1), Vector2(0, -r * 0.35)]:
+					ci.draw_line(p + o, p + o + Vector2(0, r * 0.55), SymbolPainter.WOOD_D, 2.0)
+					ci.draw_circle(p + o, r * 0.36, SymbolPainter.GREEN)
+			_:
+				SymbolPainter.draw_symbol(ci, str(s["type"]), p, r)
 
 
 func _draw_chunk(k: String, ci: Node2D) -> void:
@@ -296,7 +434,7 @@ func _draw_chunk(k: String, ci: Node2D) -> void:
 
 
 func _draw_labels() -> void:
-	if map == null:
+	if map == null or _far:
 		return
 	for l in map.labels:
 		_text(_labels_node, l["pos"], str(l["text"]), int(l.get("size", 22)), l.get("color", Color.BLACK),
@@ -321,6 +459,7 @@ func _set_terrain_px(c: int, r: int) -> void:
 	var t := map.terrain[map.idx(c, r)]
 	_terrain_img.set_pixel(c, r, Color8(t, 0, 0))
 	_mask_img.set_pixel(c, r, Color8(255 * Defs.water_lookup[t], 0, 0))
+	_height_img.set_pixel(c, r, Color8(Defs.height_lookup[t], 0, 0))
 
 
 func _set_region_px(c: int, r: int) -> void:
@@ -879,8 +1018,10 @@ func _paint_to(p: Vector2) -> void:
 			map.terrain = _work
 			_terrain_img.set_data(map.cols, map.rows, false, Image.FORMAT_R8, map.terrain)
 			_mask_img.set_data(map.cols, map.rows, false, Image.FORMAT_R8, _mask_data)
+			_height_img = _smoothed_height()
 			_terrain_tex.update(_terrain_img)
 			_mask_tex.update(_mask_img)
+			_height_tex.update(_height_img)
 			_coast_dirty = true
 		Tool.REGION:
 			map.region = _work
@@ -900,6 +1041,7 @@ func _stamp(center: Vector2i) -> void:
 	var r := brush_radius - 1
 	var cols := map.cols
 	var mask_v := 255 * Defs.water_lookup[brush_terrain]
+	var height_v := Defs.height_lookup[brush_terrain]
 	var fog_v := 1 if fog_reveal else 0
 	var wl := Defs.water_lookup
 	for dy in range(-r, r + 1):
@@ -915,6 +1057,7 @@ func _stamp(center: Vector2i) -> void:
 				for x in range(x0, x1 + 1):
 					_work[base + x] = brush_terrain
 					_mask_data[base + x] = mask_v
+					_height_data[base + x] = height_v
 			Tool.REGION:
 				var land_only := region_land_only and brush_region != 0
 				for x in range(x0, x1 + 1):

@@ -70,7 +70,8 @@ Sağ üstteki **Info** düğmesi (ya da **F1**) her şeyin nasıl yapıldığın
 ## Görüntü kalitesi
 - **HD Görünüm** (üst çubuk, varsayılan açık): Arazi GPU'da shader ile çizilir (`shaders/`). Organik kıyılar, mürekkep kıyı çizgisi, kıyı dalgaları, sığ su geçişi, arazi dokuları (orman, dağ gölgesi, kum tepeleri, kaldırım taşı, ahşap tahta, taş duvar, lav çatlakları) ve yumuşak krallık sınırları burada. Kapatınca klasik kare hücre görünümüne döner. Zindan ve bina haritalarında duvarlar düz kalsın diye kıyı bükmesi kapalıdır.
 - **Işık-gölge (rölyef)**: Her arazinin bir yüksekliği vardır. Kuzeybatıdan gelen ışıkla dağlar kabartma gibi görünür. Şehirde binalar, iç mekanlarda duvarlar gölge düşürür.
-- **Yumuşak geçişler**: Çayır, orman, ova gibi araziler arasında ve derin deniz ile sığ su arasında köşesiz, doğal geçiş vardır. Ormanlar kuşbakışı tek tek ağaç tepeleriyle çizilir.
+- **Yumuşak geçişler**: Çayır, orman, ova gibi araziler arasında ve derin deniz ile sığ su arasında köşesiz, doğal geçiş vardır. 
+- **Kalite** (üst çubuk: Yüksek / Dengeli / Hızlı): Arazi ve krallık katmanı seçilen çözünürlükte bir ara görüntüye çizilip büyütülür. Böylece ekran kartının yükü azalır; semboller ve yazılar her ayarda keskin kalır. Gürültü hesapları hazır bir dokudan okunur. Kullanılmayan katmanlar (bölge yoksa krallık katmanı) hiç çizilmez. Çok uzaktan bakarken semboller sade çizilir ve isimleri gizlenir.
 - **Parşömen**: Sepya tonlu eski kağıt harita görünümü.
 - **Fontlar**: Cinzel (bölge isimleri, başlıklar) ve EB Garamond (sembol isimleri). İkisi de MSDF olarak yüklenir, yakınlaştırınca bulanıklaşmaz. Lisans: SIL OFL, bkz. `fonts/`.
 - **PNG dışa aktarma** ekran çözünürlüğünden bağımsızdır, haritayı 3 kat çözünürlükte (120×80 dünya için 5760×3840) kaydeder.

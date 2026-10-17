@@ -5,6 +5,9 @@ uniform float warp_strength = 1.0;
 uniform sampler2D terrain_idx : filter_nearest, repeat_disable;   // R = arazi indeksi / 255
 uniform sampler2D water_mask : filter_linear, repeat_disable;     // R = 1 su, 0 kara
 uniform sampler2D palette : filter_nearest, repeat_disable;       // 256x2: renk / (su, stil)
+// Hazır, döşenebilir gürültü dokusu (R: tek katman, G: çok katmanlı). Piksel başına
+// onlarca hash hesabı yerine tek doku okuması: zayıf ekran kartlarında da akıcı.
+uniform sampler2D noise_tex : filter_linear_mipmap, repeat_enable;
 
 float hash21(vec2 p) {
 	p = fract(p * vec2(123.34, 456.21));
@@ -12,7 +15,9 @@ float hash21(vec2 p) {
 	return fract(p.x * p.y);
 }
 
-float vnoise(vec2 p) {
+// Hesaplanan (doku değil) gürültü: eğimden ışık hesabı gibi pürüzsüz türev gereken
+// az sayıdaki yerde (sadece dağ pikselleri) kullanılır.
+float vnoise_alu(vec2 p) {
 	vec2 i = floor(p);
 	vec2 f = fract(p);
 	vec2 u = f * f * (3.0 - 2.0 * f);
@@ -20,15 +25,15 @@ float vnoise(vec2 p) {
 			mix(hash21(i + vec2(0.0, 1.0)), hash21(i + vec2(1.0, 1.0)), u.x), u.y);
 }
 
+const float NOISE_SCALE = 1.0 / 64.0;   // 1 birim = dokuda 4 piksel (256 piksellik doku 64 birimde tekrarlar)
+
+float vnoise(vec2 p) {
+	// eski hesaplanan gürültüyle aynı ortalama ve yayılım (ölçülerek eşlendi)
+	return 0.497 + (texture(noise_tex, p * NOISE_SCALE).r - 0.484) * 1.33;
+}
+
 float fbm(vec2 p) {
-	float v = 0.0;
-	float a = 0.5;
-	for (int i = 0; i < 4; i++) {
-		v += a * vnoise(p);
-		p = p * 2.03 + vec2(1.7, 9.2);
-		a *= 0.5;
-	}
-	return v;
+	return 0.466 + (texture(noise_tex, p * NOISE_SCALE + vec2(0.37, 0.71)).g - 0.514) * 0.85;
 }
 
 // Hücre koordinatını gürültüyle büker: kare sınırlar organik kıvrımlara dönüşür.

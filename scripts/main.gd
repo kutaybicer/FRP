@@ -498,6 +498,16 @@ func _build_ui() -> void:
 		view.redraw()))
 	bar.add_child(_toggle("HD Görünüm", view.hd, func(on: bool) -> void: view.hd = on,
 			"Organik kıyılar, dalgalar, arazi dokuları ve yumuşak sınırlar. Kapatınca klasik kare hücreler."))
+	var q := OptionButton.new()
+	q.focus_mode = Control.FOCUS_NONE
+	for t in ["Kalite: Yüksek", "Kalite: Dengeli", "Kalite: Hızlı"]:
+		q.add_item(t)
+	q.selected = 1
+	q.tooltip_text = "Arazinin çizim çözünürlüğü. Takılma olursa Hızlı'yı seç; semboller ve yazılar her ayarda keskin kalır."
+	q.item_selected.connect(func(i: int) -> void:
+		view.terrain_scale = [1.0, 0.75, 0.5][i]
+		_toast(["Yüksek kalite: arazi tam çözünürlükte.", "Dengeli: arazi %75 çözünürlükte.", "Hızlı: arazi yarı çözünürlükte (en akıcı)."][i]))
+	bar.add_child(q)
 	bar.add_child(_toggle("Parşömen", view.parchment, func(on: bool) -> void: view.parchment = on,
 			"Eski kağıt harita görünümü"))
 	bar.add_child(_btn("Sığdır", _fit, "Home"))
